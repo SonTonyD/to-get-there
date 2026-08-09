@@ -114,6 +114,11 @@ export class SupabaseService {
       const { error: eventError } = await this.db.from('journal_events').insert(events.map((event, index) => ({ journal_id: data.id, event_order: index + 1, event_type: event.type ?? event.event_type ?? 'moment', event_time: event.time ?? event.event_time ?? null, title: event.title, description: event.description, place_text: event.place ?? event.place_text ?? null, category: event.category ?? null })));
       if (eventError) throw eventError;
     }
+    const dayNote = String(journal['summary'] || journal['title'] || '').trim();
+    if (dayNote) {
+      const { error: dayError } = await this.db.from('trip_days').update({ notes: dayNote }).eq('id', dayId);
+      if (dayError) throw dayError;
+    }
     return data;
   }
 

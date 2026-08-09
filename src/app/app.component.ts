@@ -104,12 +104,13 @@ export class AppComponent implements OnInit {
       const [saved, media] = await Promise.all([this.supabase.journal(day.id), this.supabase.media(day.id)]);
       this.journalMedia = media;
       if (saved) this.journal = { title: saved.title ?? '', summary: saved.summary ?? '', rawText: saved.raw_text ?? '', layout: saved.layout ?? 'editorial', coverMediaId: saved.cover_media_id ?? '', status: saved.status ?? 'draft', events: (saved.journal_events ?? []).sort((a: any,b: any) => a.event_order-b.event_order), places: saved.place_candidates ?? [] };
+      if (!this.journal.coverMediaId) this.journal.coverMediaId = this.photoMedia[0]?.id ?? '';
     } catch (error) { this.notify(this.errorMessage(error)); }
   }
   async addMedia(event: Event) {
     const input = event.target as HTMLInputElement; const files = Array.from(input.files ?? []);
     if (!this.selectedTrip || !this.selectedDay?.id || !files.length) return;
-    try { const user = await this.requireUser(); for (const file of files) this.journalMedia.push(await this.supabase.uploadMedia(user.id, this.selectedTrip.id, this.selectedDay.id, file)); this.notify(`${files.length} média${files.length > 1 ? 's' : ''} ajouté${files.length > 1 ? 's' : ''}`); }
+    try { const user = await this.requireUser(); for (const file of files) this.journalMedia.push(await this.supabase.uploadMedia(user.id, this.selectedTrip.id, this.selectedDay.id, file)); if (!this.journal.coverMediaId) this.journal.coverMediaId = this.photoMedia[0]?.id ?? ''; this.scheduleAutosave(); this.notify(`${files.length} média${files.length > 1 ? 's' : ''} ajouté${files.length > 1 ? 's' : ''}`); }
     catch (error) { this.notify(this.errorMessage(error)); } finally { input.value = ''; }
   }
   async toggleRecording() {
@@ -134,11 +135,15 @@ export class AppComponent implements OnInit {
   scheduleAutosave() { clearTimeout(this.autosaveTimer); this.autosaveTimer = setTimeout(() => this.saveJournal(true), 900); }
   async saveJournal(silent = false) {
     if (!this.selectedDay?.id) return;
-    try { await this.supabase.saveJournal(this.selectedDay.id, { title: this.journal.title, summary: this.journal.summary, raw_text: this.journal.rawText, layout: this.journal.layout, cover_media_id: this.journal.coverMediaId || null, status: this.journal.status }, this.journal.events); if (!silent) this.notify('Brouillon enregistré'); }
+    try { await this.supabase.saveJournal(this.selectedDay.id, { title: this.journal.title, summary: this.journal.summary, raw_text: this.journal.rawText, layout: this.journal.layout, cover_media_id: this.journal.coverMediaId || null, status: this.journal.status }, this.journal.events); this.selectedDay.note = this.journal.summary || this.journal.title; if (!silent) this.notify('Brouillon enregistré'); }
     catch (error) { if (!silent) this.notify(this.errorMessage(error)); }
   }
   async confirmPlace(place: any, decision: boolean) { place.status = decision ? 'confirmed' : 'rejected'; try { if (!place.id) return; if (decision && this.selectedDay?.id) { const visit = await this.supabase.confirmPlaceCandidate(place, this.selectedDay.id); place.visitId = visit.id; } else await this.supabase.updatePlaceCandidate(place.id, 'rejected'); } catch (error) { place.status = 'pending'; this.notify(this.errorMessage(error)); } }
   async ratePlace(place: any, field: 'liked' | 'recommended', value: boolean) { place[field] = value; try { if (place.visitId) await this.supabase.ratePlaceVisit(place.visitId, { [field]: value }); } catch (error) { this.notify(this.errorMessage(error)); } }
+  get photoMedia() { return this.journalMedia.filter(media => media.media_type === 'photo' && media.url); }
+  get coverPhoto() { return this.photoMedia.find(media => media.id === this.journal.coverMediaId) ?? this.photoMedia[0] ?? null; }
+  get galleryPhotos() { return this.photoMedia.filter(media => media.id !== this.coverPhoto?.id).slice(0, 3); }
+  selectCover(media: any) { this.journal.coverMediaId = media.id; this.scheduleAutosave(); }
   async addExpense() { if (!this.selectedDay?.id || !this.expense.label || !this.expense.amount) return; try { await this.supabase.saveExpense(this.selectedDay.id, this.expense.label, this.expense.amount, this.selectedTrip?.currency ?? 'EUR'); this.expense = { label: '', amount: null }; this.notify('Dépense ajoutée'); } catch (error) { this.notify(this.errorMessage(error)); } }
   async deleteTrip(trip: Trip) {
     if (!confirm(`Supprimer « ${trip.title} » ?`)) return;
