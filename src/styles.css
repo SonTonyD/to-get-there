@@ -1,1 +1,7 @@
-/* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Parisienne&display=swap');
+:root { --violet:#8f5fd7; --lavender:#c8b6ff; --dark:#4f365c; --mint:#b8f2e6; --pink:#efb3c8; --paper:#fffafc; --muted:#74677a; --shadow:0 12px 30px rgba(92,58,119,.12); }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; color:var(--dark); background:#f8f9ff; font-family:'Nunito',sans-serif; }
+button,input,select,textarea { font:inherit; }
+button { cursor:pointer; }
