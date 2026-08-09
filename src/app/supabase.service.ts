@@ -90,4 +90,87 @@ export class SupabaseService {
     const { error } = await this.db.from('trips').delete().eq('id', id);
     if (error) throw error;
   }
+
+  async journal(dayId: string) {
+    const { data, error } = await this.db.from('day_journals')
+      .select('*, journal_events(*), place_candidates(*)').eq('trip_day_id', dayId).maybeSingle();
+    if (error) throw error;
+    if (data?.place_candidates?.length) {
+      const { data: visits } = await this.db.from('place_visits').select('*').eq('trip_day_id', dayId);
+      data.place_candidates = data.place_candidates.map((candidate: any) => {
+        const visit = (visits ?? []).find((item: any) => item.place_id === candidate.resolved_place_id);
+        return { ...candidate, visitId: visit?.id, liked: visit?.liked, recommended: visit?.recommended };
+      });
+    }
+    return data;
+  }
+
+  async saveJournal(dayId: string, journal: Record<string, unknown>, events: any[] = []) {
+    const { data, error } = await this.db.from('day_journals')
+      .upsert({ trip_day_id: dayId, ...journal }, { onConflict: 'trip_day_id' }).select().single();
+    if (error) throw error;
+    if (events.length) {
+      await this.db.from('journal_events').delete().eq('journal_id', data.id);
+      const { error: eventError } = await this.db.from('journal_events').insert(events.map((event, index) => ({ journal_id: data.id, event_order: index + 1, event_type: event.type ?? event.event_type ?? 'moment', event_time: event.time ?? event.event_time ?? null, title: event.title, description: event.description, place_text: event.place ?? event.place_text ?? null, category: event.category ?? null })));
+      if (eventError) throw eventError;
+    }
+    return data;
+  }
+
+  async updatePlaceCandidate(id: string, status: 'confirmed' | 'rejected') {
+    const { error } = await this.db.from('place_candidates').update({ status }).eq('id', id);
+    if (error) throw error;
+  }
+
+  async confirmPlaceCandidate(candidate: any, dayId: string) {
+    const { data: place, error: placeError } = await this.db.from('places').insert({ name: candidate.name, city: candidate.city, category: candidate.category, provider: 'manual' }).select().single();
+    if (placeError) throw placeError;
+    const { data: visit, error: visitError } = await this.db.from('place_visits').insert({ trip_day_id: dayId, place_id: place.id, category: candidate.category }).select().single();
+    if (visitError) throw visitError;
+    const { error } = await this.db.from('place_candidates').update({ status: 'confirmed', resolved_place_id: place.id }).eq('id', candidate.id);
+    if (error) throw error;
+    return visit;
+  }
+
+  async ratePlaceVisit(id: string, values: Record<string, unknown>) {
+    const { error } = await this.db.from('place_visits').update(values).eq('id', id);
+    if (error) throw error;
+  }
+
+  async uploadMedia(userId: string, tripId: string, dayId: string, file: File) {
+    const extension = file.name.split('.').pop() || 'bin';
+    const path = `${userId}/${tripId}/${dayId}/${crypto.randomUUID()}.${extension}`;
+    const { error } = await this.db.storage.from('trip-media').upload(path, file, { contentType: file.type });
+    if (error) throw error;
+    const { data, error: rowError } = await this.db.from('trip_media').insert({ trip_day_id: dayId, storage_path: path, media_type: file.type.startsWith('video') ? 'video' : file.type.startsWith('audio') ? 'audio' : 'photo', original_name: file.name }).select().single();
+    if (rowError) throw rowError;
+    const { data: signed } = await this.db.storage.from('trip-media').createSignedUrl(path, 3600);
+    return { ...data, url: signed?.signedUrl };
+  }
+
+  async media(dayId: string) {
+    const { data, error } = await this.db.from('trip_media').select('*').eq('trip_day_id', dayId).order('created_at');
+    if (error) throw error;
+    return Promise.all((data ?? []).map(async item => {
+      const { data: signed } = await this.db.storage.from('trip-media').createSignedUrl(item.storage_path, 3600);
+      return { ...item, url: signed?.signedUrl };
+    }));
+  }
+
+  async transcribe(storagePath: string) {
+    const { data, error } = await this.db.functions.invoke('transcribe-day', { body: { storagePath } });
+    if (error) throw error;
+    return data.text as string;
+  }
+
+  async generateJournal(dayId: string, rawText: string, media: unknown[]) {
+    const { data, error } = await this.db.functions.invoke('generate-journal', { body: { dayId, rawText, media } });
+    if (error) throw error;
+    return data;
+  }
+
+  async saveExpense(dayId: string, label: string, amount: number, currency: string) {
+    const { error } = await this.db.from('expenses').insert({ trip_day_id: dayId, label, amount, currency });
+    if (error) throw error;
+  }
 }

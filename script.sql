@@ -158,3 +158,154 @@ from public.profiles p;
 grant select on public.public_traveler_profiles to anon, authenticated;
 revoke all on public.traveler_profiles from anon;
 grant select, insert, update, delete on public.traveler_profiles to authenticated;
+
+-- ============================================================
+-- Sous-lot 1B · Journal, médias, lieux, dépenses et IA
+-- ============================================================
+create type public.media_kind as enum ('photo', 'video', 'audio');
+create type public.journal_status as enum ('draft', 'published');
+create type public.place_candidate_status as enum ('pending', 'confirmed', 'rejected');
+
+create table public.day_journals (
+  id uuid primary key default gen_random_uuid(),
+  trip_day_id uuid not null unique references public.trip_days(id) on delete cascade,
+  title text,
+  summary text,
+  raw_text text,
+  layout text not null default 'editorial' check (layout in ('editorial','timeline')),
+  cover_media_id uuid,
+  status public.journal_status not null default 'draft',
+  ai_model text,
+  ai_generated_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.trip_media (
+  id uuid primary key default gen_random_uuid(),
+  trip_day_id uuid not null references public.trip_days(id) on delete cascade,
+  storage_path text not null unique,
+  media_type public.media_kind not null,
+  original_name text,
+  caption text,
+  captured_at timestamptz,
+  event_id uuid,
+  selected boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table public.day_journals add constraint day_journal_cover_fk foreign key (cover_media_id) references public.trip_media(id) on delete set null;
+
+create table public.journal_events (
+  id uuid primary key default gen_random_uuid(),
+  journal_id uuid not null references public.day_journals(id) on delete cascade,
+  event_order integer not null,
+  event_type text not null default 'moment',
+  event_time time,
+  title text not null,
+  description text,
+  place_text text,
+  category text,
+  created_at timestamptz not null default now(),
+  unique(journal_id, event_order)
+);
+alter table public.trip_media add constraint trip_media_event_fk foreign key (event_id) references public.journal_events(id) on delete set null;
+
+create table public.places (
+  id uuid primary key default gen_random_uuid(),
+  provider text not null default 'manual',
+  provider_place_id text,
+  name text not null,
+  city text,
+  country text,
+  latitude double precision,
+  longitude double precision,
+  category text,
+  created_at timestamptz not null default now(),
+  unique(provider, provider_place_id)
+);
+
+create table public.place_candidates (
+  id uuid primary key default gen_random_uuid(),
+  journal_id uuid not null references public.day_journals(id) on delete cascade,
+  raw_mention text not null,
+  name text not null,
+  city text,
+  category text,
+  confidence numeric(4,3),
+  status public.place_candidate_status not null default 'pending',
+  resolved_place_id uuid references public.places(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table public.place_visits (
+  id uuid primary key default gen_random_uuid(),
+  trip_day_id uuid not null references public.trip_days(id) on delete cascade,
+  place_id uuid not null references public.places(id) on delete restrict,
+  category text,
+  liked boolean,
+  recommended boolean,
+  private_note text,
+  public_comment text,
+  visited_at time,
+  created_at timestamptz not null default now(),
+  unique(trip_day_id, place_id)
+);
+
+create table public.expenses (
+  id uuid primary key default gen_random_uuid(),
+  trip_day_id uuid not null references public.trip_days(id) on delete cascade,
+  label text not null,
+  amount numeric(12,2) not null check (amount >= 0),
+  currency char(3) not null check (currency = upper(currency)),
+  category text,
+  created_at timestamptz not null default now()
+);
+
+create table public.ai_journal_runs (
+  id uuid primary key default gen_random_uuid(),
+  trip_day_id uuid not null references public.trip_days(id) on delete cascade,
+  requested_by uuid not null references auth.users(id) on delete cascade,
+  model text not null,
+  status text not null check (status in ('processing','completed','failed')),
+  input_chars integer not null default 0,
+  error_message text,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create trigger journals_touch before update on public.day_journals for each row execute function public.touch_updated_at();
+create index trip_media_day_idx on public.trip_media(trip_day_id);
+create index journal_events_journal_idx on public.journal_events(journal_id,event_order);
+create index place_candidates_journal_idx on public.place_candidates(journal_id);
+create index expenses_day_idx on public.expenses(trip_day_id);
+
+create or replace function public.owns_trip_day(target_day uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists(select 1 from public.trip_days d join public.trips t on t.id=d.trip_id where d.id=target_day and t.owner_id=auth.uid());
+$$;
+
+alter table public.day_journals enable row level security;
+alter table public.trip_media enable row level security;
+alter table public.journal_events enable row level security;
+alter table public.places enable row level security;
+alter table public.place_candidates enable row level security;
+alter table public.place_visits enable row level security;
+alter table public.expenses enable row level security;
+alter table public.ai_journal_runs enable row level security;
+
+create policy journals_owner_all on public.day_journals for all using (public.owns_trip_day(trip_day_id)) with check (public.owns_trip_day(trip_day_id));
+create policy media_owner_all on public.trip_media for all using (public.owns_trip_day(trip_day_id)) with check (public.owns_trip_day(trip_day_id));
+create policy events_owner_all on public.journal_events for all using (exists(select 1 from public.day_journals j where j.id=journal_id and public.owns_trip_day(j.trip_day_id))) with check (exists(select 1 from public.day_journals j where j.id=journal_id and public.owns_trip_day(j.trip_day_id)));
+create policy candidates_owner_all on public.place_candidates for all using (exists(select 1 from public.day_journals j where j.id=journal_id and public.owns_trip_day(j.trip_day_id))) with check (exists(select 1 from public.day_journals j where j.id=journal_id and public.owns_trip_day(j.trip_day_id)));
+create policy visits_owner_all on public.place_visits for all using (public.owns_trip_day(trip_day_id)) with check (public.owns_trip_day(trip_day_id));
+create policy expenses_owner_all on public.expenses for all using (public.owns_trip_day(trip_day_id)) with check (public.owns_trip_day(trip_day_id));
+create policy ai_runs_owner_select on public.ai_journal_runs for select using (requested_by=auth.uid());
+create policy places_authenticated_read on public.places for select to authenticated using (true);
+create policy places_authenticated_insert on public.places for insert to authenticated with check (true);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('trip-media','trip-media',false,52428800,array['image/jpeg','image/png','image/webp','video/mp4','video/webm','audio/webm','audio/mp4','audio/mpeg'])
+on conflict (id) do nothing;
+create policy trip_media_storage_select on storage.objects for select to authenticated using (bucket_id='trip-media' and (storage.foldername(name))[1]=auth.uid()::text);
+create policy trip_media_storage_insert on storage.objects for insert to authenticated with check (bucket_id='trip-media' and (storage.foldername(name))[1]=auth.uid()::text);
+create policy trip_media_storage_delete on storage.objects for delete to authenticated using (bucket_id='trip-media' and (storage.foldername(name))[1]=auth.uid()::text);

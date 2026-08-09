@@ -1,110 +1,611 @@
 <div class="app-shell" [class.splashing]="screen === 'splash'">
-  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="stars">✦　·　✧</div>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="stars">✦　·　✧</div>
 
-  @if (screen !== 'splash' && screen !== 'auth' && screen !== 'questionnaire') {
+  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire") {
     <header class="topbar">
-      <button class="brand" (click)="go('home')"><span class="brand-mark">✦</span><span>Odyssea</span></button>
+      <button class="brand" (click)="go('home')">
+        <span class="brand-mark">✦</span><span>To Get There</span>
+      </button>
       <nav [class.open]="menuOpen">
-        <button [class.active]="screen === 'home'" (click)="go('home')">Accueil</button>
-        <button [class.active]="screen === 'trips' || screen === 'dashboard'" (click)="go('trips')">Mes voyages</button>
-        <button class="nav-create" (click)="go('new-trip')">＋ Nouveau voyage</button>
+        <button [class.active]="screen === 'home'" (click)="go('home')">
+          Accueil
+        </button>
+        <button
+          [class.active]="screen === 'trips' || screen === 'dashboard'"
+          (click)="go('trips')"
+        >
+          Mes voyages
+        </button>
+        <button class="nav-create" (click)="go('new-trip')">
+          ＋ Nouveau voyage
+        </button>
       </nav>
-      <button class="avatar" (click)="go('profile')" aria-label="Mon profil">{{ user.avatar }}</button>
-      <button class="menu" (click)="menuOpen = !menuOpen" aria-label="Menu">☰</button>
+      <button class="avatar" (click)="go('profile')" aria-label="Mon profil">
+        {{ user.avatar }}
+      </button>
+      <button class="menu" (click)="menuOpen = !menuOpen" aria-label="Menu">
+        ☰
+      </button>
     </header>
   }
 
   <main>
-    @if (screen === 'splash') {
+    @if (screen === "splash") {
       <section class="splash page">
         <div class="splash-copy">
           <span class="eyebrow">Ton carnet de voyage sensible</span>
-          <h1>Voyage à ton rythme,<br><em>rêve sans limites.</em></h1>
-          <p>Imagine, organise et garde précieusement chaque aventure dans un cocon pensé pour toi.</p>
-          <button class="primary large" (click)="start()">Commencer l’aventure <span>→</span></button>
-          <span class="trust">✦ Gratuit pour commencer　·　Tes données restent privées</span>
+          <h1>Voyage à ton rythme,<br /><em>rêve sans limites.</em></h1>
+          <p>
+            Imagine, organise et garde précieusement chaque aventure dans un
+            cocon pensé pour toi.
+          </p>
+          <button class="primary large" (click)="start()">
+            Commencer l’aventure <span>→</span>
+          </button>
+          <span class="trust"
+            >✦ Gratuit pour commencer　·　Tes données restent privées</span
+          >
         </div>
         <div class="hero-art" aria-hidden="true">
-          <div class="sun"></div><div class="cloud c1">☁</div><div class="cloud c2">☁</div>
-          <div class="postcard"><span>Prochaine escale</span><strong>Hanoï</strong><small>12 avril 2026</small><i>✈</i></div>
-          <div class="planet">✦</div><div class="pin">♡</div>
+          <div class="sun"></div>
+          <div class="cloud c1">☁</div>
+          <div class="cloud c2">☁</div>
+          <div class="postcard">
+            <span>Prochaine escale</span><strong>Hanoï</strong
+            ><small>12 avril 2026</small><i>✈</i>
+          </div>
+          <div class="planet">✦</div>
+          <div class="pin">♡</div>
         </div>
       </section>
     }
 
-    @if (screen === 'auth') {
+    @if (screen === "auth") {
       <section class="center-page page">
         <button class="back" (click)="go('splash')">← Retour</button>
         <div class="auth-card paper-card">
-          <div class="mini-logo">✦</div><h2>{{ authMode === 'signup' ? 'Crée ton carnet' : authMode === 'login' ? 'Heureuse de te revoir' : 'Mot de passe oublié' }}</h2>
-          <p>{{ authMode === 'forgot' ? 'On t’envoie un lien pour retrouver ton chemin.' : 'Ton prochain voyage commence ici.' }}</p>
-          @if (authMode === 'signup') {
-            <div class="field-row"><label>Prénom<input [(ngModel)]="auth.firstname" placeholder="Élodie"></label><label>Pseudo<input [(ngModel)]="auth.username" placeholder="elodie.voyage"></label></div>
+          <div class="mini-logo">✦</div>
+          <h2>
+            {{
+              authMode === "signup"
+                ? "Crée ton carnet"
+                : authMode === "login"
+                  ? "Heureuse de te revoir"
+                  : "Mot de passe oublié"
+            }}
+          </h2>
+          <p>
+            {{
+              authMode === "forgot"
+                ? "On t’envoie un lien pour retrouver ton chemin."
+                : "Ton prochain voyage commence ici."
+            }}
+          </p>
+          @if (authMode === "signup") {
+            <div class="field-row">
+              <label
+                >Prénom<input
+                  [(ngModel)]="auth.firstname"
+                  placeholder="Élodie" /></label
+              ><label
+                >Pseudo<input
+                  [(ngModel)]="auth.username"
+                  placeholder="elodie.voyage"
+              /></label>
+            </div>
           }
-          <label>Adresse e-mail<input type="email" [(ngModel)]="auth.email" placeholder="toi@exemple.fr"></label>
-          @if (authMode !== 'forgot') { <label>Mot de passe<input type="password" [(ngModel)]="auth.password" placeholder="8 caractères minimum"></label> }
-          <button class="primary wide" (click)="submitAuth()">{{ authMode === 'signup' ? 'Créer mon compte' : authMode === 'login' ? 'Se connecter' : 'Envoyer le lien' }}</button>
-          @if (authMode === 'login') { <button class="text-link" (click)="authMode = 'forgot'">Mot de passe oublié ?</button> }
+          <label
+            >Adresse e-mail<input
+              type="email"
+              [(ngModel)]="auth.email"
+              placeholder="toi@exemple.fr"
+          /></label>
+          @if (authMode !== "forgot") {
+            <label
+              >Mot de passe<input
+                type="password"
+                [(ngModel)]="auth.password"
+                placeholder="8 caractères minimum"
+            /></label>
+          }
+          <button class="primary wide" (click)="submitAuth()">
+            {{
+              authMode === "signup"
+                ? "Créer mon compte"
+                : authMode === "login"
+                  ? "Se connecter"
+                  : "Envoyer le lien"
+            }}
+          </button>
+          @if (authMode === "login") {
+            <button class="text-link" (click)="authMode = 'forgot'">
+              Mot de passe oublié ?
+            </button>
+          }
           <div class="divider"><span>ou</span></div>
-          <button class="secondary wide" (click)="authMode = authMode === 'signup' ? 'login' : 'signup'">{{ authMode === 'signup' ? 'J’ai déjà un compte' : 'Créer un compte' }}</button>
+          <button
+            class="secondary wide"
+            (click)="authMode = authMode === 'signup' ? 'login' : 'signup'"
+          >
+            {{
+              authMode === "signup" ? "J’ai déjà un compte" : "Créer un compte"
+            }}
+          </button>
         </div>
       </section>
     }
 
-    @if (screen === 'questionnaire') {
+    @if (screen === "questionnaire") {
       <section class="question-page page">
-        <div class="progress-head"><button class="back" (click)="go('auth')">← Retour</button><span>Étape 2 sur 2</span></div><div class="progress"><i></i></div>
-        <div class="question-intro"><span class="lock">🔒</span><div><span class="eyebrow">Rien qu’entre nous</span><h2>Apprenons à voyager ensemble</h2><p>Ces réponses sont strictement privées. Elles nous aident à imaginer des voyages qui te ressemblent.</p></div></div>
+        <div class="progress-head">
+          <button class="back" (click)="go('auth')">← Retour</button
+          ><span>Étape 2 sur 2</span>
+        </div>
+        <div class="progress"><i></i></div>
+        <div class="question-intro">
+          <span class="lock">🔒</span>
+          <div>
+            <span class="eyebrow">Rien qu’entre nous</span>
+            <h2>Apprenons à voyager ensemble</h2>
+            <p>
+              Ces réponses sont strictement privées. Elles nous aident à
+              imaginer des voyages qui te ressemblent.
+            </p>
+          </div>
+        </div>
         <div class="question-grid">
-          <div class="paper-card"><h3>Ton énergie en voyage</h3><p>Je suis plutôt…</p><div class="choice-grid">
-            @for (choice of ['curieuse','rêveuse','aventurière','contemplative']; track choice) { <button [class.selected]="questionnaire.personality === choice" (click)="questionnaire.personality = choice">{{ choice === 'curieuse' ? '🔎' : choice === 'rêveuse' ? '☁️' : choice === 'aventurière' ? '🧭' : '🌿' }}<span>{{ choice }}</span></button> }
-          </div></div>
-          <div class="paper-card sensitivity"><h3>Tes sensibilités</h3><label>Bruit <span>{{ questionnaire.noise }}/5</span><input type="range" min="1" max="5" [(ngModel)]="questionnaire.noise"></label><label>Foule <span>{{ questionnaire.crowd }}/5</span><input type="range" min="1" max="5" [(ngModel)]="questionnaire.crowd"></label><label>Imprévus <span>{{ questionnaire.anxiety }}/5</span><input type="range" min="1" max="5" [(ngModel)]="questionnaire.anxiety"></label></div>
-          <div class="paper-card"><h3>Confort & habitudes</h3><label>Préférences alimentaires<input [(ngModel)]="questionnaire.diet" placeholder="Végétarien, sans porc…"></label><label>Allergies<input [(ngModel)]="questionnaire.allergies" placeholder="Facultatif"></label><label>Mobilité<textarea [(ngModel)]="questionnaire.mobility" placeholder="Rythme de marche, accessibilité…"></textarea></label></div>
+          <div class="paper-card">
+            <h3>Ton énergie en voyage</h3>
+            <p>Je suis plutôt…</p>
+            <div class="choice-grid">
+              @for (
+                choice of [
+                  "curieuse",
+                  "rêveuse",
+                  "aventurière",
+                  "contemplative",
+                ];
+                track choice
+              ) {
+                <button
+                  [class.selected]="questionnaire.personality === choice"
+                  (click)="questionnaire.personality = choice"
+                >
+                  {{
+                    choice === "curieuse"
+                      ? "🔎"
+                      : choice === "rêveuse"
+                        ? "☁️"
+                        : choice === "aventurière"
+                          ? "🧭"
+                          : "🌿"
+                  }}<span>{{ choice }}</span>
+                </button>
+              }
+            </div>
+          </div>
+          <div class="paper-card sensitivity">
+            <h3>Tes sensibilités</h3>
+            <label
+              >Bruit <span>{{ questionnaire.noise }}/5</span
+              ><input
+                type="range"
+                min="1"
+                max="5"
+                [(ngModel)]="questionnaire.noise" /></label
+            ><label
+              >Foule <span>{{ questionnaire.crowd }}/5</span
+              ><input
+                type="range"
+                min="1"
+                max="5"
+                [(ngModel)]="questionnaire.crowd" /></label
+            ><label
+              >Imprévus <span>{{ questionnaire.anxiety }}/5</span
+              ><input
+                type="range"
+                min="1"
+                max="5"
+                [(ngModel)]="questionnaire.anxiety"
+            /></label>
+          </div>
+          <div class="paper-card">
+            <h3>Confort & habitudes</h3>
+            <label
+              >Préférences alimentaires<input
+                [(ngModel)]="questionnaire.diet"
+                placeholder="Végétarien, sans porc…" /></label
+            ><label
+              >Allergies<input
+                [(ngModel)]="questionnaire.allergies"
+                placeholder="Facultatif" /></label
+            ><label
+              >Mobilité<textarea
+                [(ngModel)]="questionnaire.mobility"
+                placeholder="Rythme de marche, accessibilité…"
+              ></textarea>
+            </label>
+          </div>
         </div>
-        <div class="form-actions"><span>Tu pourras modifier ces réponses à tout moment.</span><button class="primary" (click)="saveQuestionnaire()">Terminer mon profil →</button></div>
+        <div class="form-actions">
+          <span>Tu pourras modifier ces réponses à tout moment.</span
+          ><button class="primary" (click)="saveQuestionnaire()">
+            Terminer mon profil →
+          </button>
+        </div>
       </section>
     }
 
-    @if (screen === 'home') {
+    @if (screen === "home") {
       <section class="home page">
-        <div class="welcome"><div><span class="eyebrow">Dimanche, jour de rêver ✦</span><h2>Bonjour {{ user.firstname || 'Élodie' }},<br><em>où allons-nous ?</em></h2><p>Une nouvelle aventure n’attend peut-être qu’un nom.</p><button class="primary" (click)="go('new-trip')">＋ Imaginer un voyage</button></div><div class="welcome-art"><span>✈</span><i>☁</i><b>♡</b></div></div>
-        <div class="section-head"><div><span class="eyebrow">Tes échappées</span><h3>Voyages à venir</h3></div><button class="text-link" (click)="go('trips')">Tout voir →</button></div>
-        @if (trips.length) { <div class="trip-grid">@for (trip of trips.slice(0, 3); track trip.id) { <ng-container *ngTemplateOutlet="tripCard; context: {$implicit: trip}"></ng-container> }</div> }
-        @else { <div class="empty-state paper-card"><span>🗺️</span><h3>Ta carte n’attend que toi</h3><p>Crée ton premier voyage et regarde les journées prendre vie automatiquement.</p><button class="secondary" (click)="go('new-trip')">Créer « Vietnam 2026 »</button></div> }
-        <div class="inspiration"><span>La petite pensée du jour</span><blockquote>“Le voyage commence bien avant le départ, dans ce frisson doux de l’imaginer.”</blockquote><i>✦</i></div>
-      </section>
-    }
-
-    @if (screen === 'trips') {
-      <section class="page inner-page"><div class="page-title"><div><span class="eyebrow">Tous tes souvenirs à venir</span><h2>Mes voyages</h2><p>{{ trips.length }} aventure{{ trips.length > 1 ? 's' : '' }} dans ton carnet</p></div><button class="primary" (click)="go('new-trip')">＋ Nouveau voyage</button></div>
-      @if (trips.length) { <div class="trip-grid">@for (trip of trips; track trip.id) { <ng-container *ngTemplateOutlet="tripCard; context: {$implicit: trip}"></ng-container> }</div> }
-      @else { <div class="empty-state paper-card"><span>🧳</span><h3>Le monde est grand ouvert</h3><p>Ton premier itinéraire commence par une destination.</p><button class="primary" (click)="go('new-trip')">Créer mon premier voyage</button></div> }</section>
-    }
-
-    @if (screen === 'new-trip') {
-      <section class="page form-page"><button class="back" (click)="go('trips')">← Mes voyages</button><div class="form-heading"><span class="eyebrow">Une page blanche</span><h2>Imaginons ta prochaine aventure</h2><p>Quelques détails suffisent, tu enrichiras ton voyage plus tard.</p></div>
-        <div class="trip-form paper-card"><div class="stamp">✈</div><label>Nom du voyage <span>*</span><input class="title-input" [(ngModel)]="tripForm.title" placeholder="Ex. Vietnam 2026"></label><label>Destination <span>*</span><input [(ngModel)]="tripForm.country" placeholder="Pays ou région"></label><div class="field-row"><label>Date de départ <span>*</span><input type="date" [(ngModel)]="tripForm.startDate"></label><label>Date de retour <span>*</span><input type="date" [(ngModel)]="tripForm.endDate"></label></div><div class="field-row"><label>Devise<select [(ngModel)]="tripForm.currency"><option>EUR</option><option>USD</option><option>VND</option><option>JPY</option><option>GBP</option></select></label><label>Budget prévisionnel<input type="number" [(ngModel)]="tripForm.budget" placeholder="Facultatif"></label></div>
-          <fieldset><legend>Qui peut voir ce voyage ?</legend><button [class.selected]="tripForm.visibility === 'private'" (click)="tripForm.visibility = 'private'"><b>🔒 Privé</b><small>Rien que pour toi</small></button><button [class.selected]="tripForm.visibility === 'public'" (click)="tripForm.visibility = 'public'"><b>✦ Public</b><small>Visible sur ton profil</small></button></fieldset>
-          <div class="info-note">✨ Les journées seront créées automatiquement entre tes dates.</div><button class="primary wide large" (click)="createTrip()">Créer mon voyage →</button>
+        <div class="welcome">
+          <div>
+            <span class="eyebrow">Dimanche, jour de rêver ✦</span>
+            <h2>
+              Bonjour {{ user.firstname || "Élodie" }},<br /><em
+                >où allons-nous ?</em
+              >
+            </h2>
+            <p>Une nouvelle aventure n’attend peut-être qu’un nom.</p>
+            <button class="primary" (click)="go('new-trip')">
+              ＋ Imaginer un voyage
+            </button>
+          </div>
+          <div class="welcome-art"><span>✈</span><i>☁</i><b>♡</b></div>
+        </div>
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Tes échappées</span>
+            <h3>Voyages à venir</h3>
+          </div>
+          <button class="text-link" (click)="go('trips')">Tout voir →</button>
+        </div>
+        @if (trips.length) {
+          <div class="trip-grid">
+            @for (trip of trips.slice(0, 3); track trip.id) {
+              <ng-container
+                *ngTemplateOutlet="tripCard; context: { $implicit: trip }"
+              ></ng-container>
+            }
+          </div>
+        } @else {
+          <div class="empty-state paper-card">
+            <span>🗺️</span>
+            <h3>Ta carte n’attend que toi</h3>
+            <p>
+              Crée ton premier voyage et regarde les journées prendre vie
+              automatiquement.
+            </p>
+            <button class="secondary" (click)="go('new-trip')">
+              Créer « Vietnam 2026 »
+            </button>
+          </div>
+        }
+        <div class="inspiration">
+          <span>La petite pensée du jour</span>
+          <blockquote>
+            “Le voyage commence bien avant le départ, dans ce frisson doux de
+            l’imaginer.”
+          </blockquote>
+          <i>✦</i>
         </div>
       </section>
     }
 
-    @if (screen === 'dashboard' && selectedTrip) {
-      <section class="page dashboard"><button class="back" (click)="go('trips')">← Mes voyages</button><div class="trip-hero"><div><span class="status">{{ selectedTrip.visibility === 'private' ? '🔒 Voyage privé' : '✦ Voyage public' }}</span><h2>{{ selectedTrip.title }}</h2><p>📍 {{ selectedTrip.country }}　·　{{ formatDate(selectedTrip.startDate) }} — {{ formatDate(selectedTrip.endDate) }}</p></div><div class="trip-ticket"><span>Budget douceur</span><strong>{{ formatMoney(selectedTrip.budget, selectedTrip.currency) }}</strong><small>{{ selectedTrip.days.length }} jours d’évasion</small></div></div>
-        <div class="dashboard-grid"><div class="days"><div class="section-head"><div><span class="eyebrow">Ton itinéraire</span><h3>Jour après jour</h3></div><span class="badge">{{ selectedTrip.days.length }} jours</span></div>@for (day of selectedTrip.days; track day.date) { <div class="day-row"><div class="day-number">{{ day.label.replace('Jour ', '') }}</div><div><strong>{{ day.label }}</strong><span>{{ formatDate(day.date) }}</span></div><div class="day-placeholder">{{ day.note || 'Rien de prévu… et c’est très bien.' }}</div><button aria-label="Ajouter">＋</button></div> }</div>
-        <aside><div class="paper-card recap"><h3>En un coup d’œil</h3><div><span>✈</span><p><small>Destination</small><b>{{ selectedTrip.country }}</b></p></div><div><span>◷</span><p><small>Durée</small><b>{{ selectedTrip.days.length }} jours</b></p></div><div><span>♡</span><p><small>Budget</small><b>{{ formatMoney(selectedTrip.budget, selectedTrip.currency) }}</b></p></div></div><button class="secondary wide">Modifier le voyage</button><button class="danger-link wide" (click)="deleteTrip(selectedTrip)">Supprimer ce voyage</button></aside></div>
+    @if (screen === "trips") {
+      <section class="page inner-page">
+        <div class="page-title">
+          <div>
+            <span class="eyebrow">Tous tes souvenirs à venir</span>
+            <h2>Mes voyages</h2>
+            <p>
+              {{ trips.length }} aventure{{ trips.length > 1 ? "s" : "" }} dans
+              ton carnet
+            </p>
+          </div>
+          <button class="primary" (click)="go('new-trip')">
+            ＋ Nouveau voyage
+          </button>
+        </div>
+        @if (trips.length) {
+          <div class="trip-grid">
+            @for (trip of trips; track trip.id) {
+              <ng-container
+                *ngTemplateOutlet="tripCard; context: { $implicit: trip }"
+              ></ng-container>
+            }
+          </div>
+        } @else {
+          <div class="empty-state paper-card">
+            <span>🧳</span>
+            <h3>Le monde est grand ouvert</h3>
+            <p>Ton premier itinéraire commence par une destination.</p>
+            <button class="primary" (click)="go('new-trip')">
+              Créer mon premier voyage
+            </button>
+          </div>
+        }
       </section>
     }
 
-    @if (screen === 'profile') {
-      <section class="page profile-page"><div class="page-title"><div><span class="eyebrow">Ton espace à toi</span><h2>Profil & paramètres</h2></div><button class="secondary" (click)="logout()">Se déconnecter</button></div><div class="profile-grid"><aside class="paper-card profile-summary"><div class="big-avatar">{{ user.avatar }}</div><h3>{{ user.firstname || 'Élodie' }}</h3><p>&#64;{{ user.username || 'exploratrice' }}</p><span class="private-pill">🔒 Questionnaire privé</span></aside><div class="paper-card profile-form"><h3>Mon profil public</h3><p>Ces informations peuvent être visibles si tu rends un voyage public.</p><div class="field-row"><label>Prénom<input [(ngModel)]="user.firstname"></label><label>Pseudo<input [(ngModel)]="user.username"></label></div><label>E-mail<input [(ngModel)]="user.email" type="email"></label><label>Ma bio<textarea [(ngModel)]="user.bio" placeholder="Quelques mots sur toi…"></textarea></label><button class="primary" (click)="saveProfile()">Enregistrer</button><hr><div class="privacy-block"><span>🔒</span><div><h3>Mon profil voyageur privé</h3><p>Sensibilités, alimentation et préférences ne sont jamais partagées.</p></div><button class="secondary" (click)="go('questionnaire')">Modifier</button></div></div></div></section>
+    @if (screen === "new-trip") {
+      <section class="page form-page">
+        <button class="back" (click)="go('trips')">← Mes voyages</button>
+        <div class="form-heading">
+          <span class="eyebrow">Une page blanche</span>
+          <h2>Imaginons ta prochaine aventure</h2>
+          <p>Quelques détails suffisent, tu enrichiras ton voyage plus tard.</p>
+        </div>
+        <div class="trip-form paper-card">
+          <div class="stamp">✈</div>
+          <label
+            >Nom du voyage <span>*</span
+            ><input
+              class="title-input"
+              [(ngModel)]="tripForm.title"
+              placeholder="Ex. Vietnam 2026" /></label
+          ><label
+            >Destination <span>*</span
+            ><input [(ngModel)]="tripForm.country" placeholder="Pays ou région"
+          /></label>
+          <div class="field-row">
+            <label
+              >Date de départ <span>*</span
+              ><input type="date" [(ngModel)]="tripForm.startDate" /></label
+            ><label
+              >Date de retour <span>*</span
+              ><input type="date" [(ngModel)]="tripForm.endDate"
+            /></label>
+          </div>
+          <div class="field-row">
+            <label
+              >Devise<select [(ngModel)]="tripForm.currency">
+                <option>EUR</option>
+                <option>USD</option>
+                <option>VND</option>
+                <option>JPY</option>
+                <option>GBP</option>
+              </select></label
+            ><label
+              >Budget prévisionnel<input
+                type="number"
+                [(ngModel)]="tripForm.budget"
+                placeholder="Facultatif"
+            /></label>
+          </div>
+          <fieldset>
+            <legend>Qui peut voir ce voyage ?</legend>
+            <button
+              [class.selected]="tripForm.visibility === 'private'"
+              (click)="tripForm.visibility = 'private'"
+            >
+              <b>🔒 Privé</b><small>Rien que pour toi</small></button
+            ><button
+              [class.selected]="tripForm.visibility === 'public'"
+              (click)="tripForm.visibility = 'public'"
+            >
+              <b>✦ Public</b><small>Visible sur ton profil</small>
+            </button>
+          </fieldset>
+          <div class="info-note">
+            ✨ Les journées seront créées automatiquement entre tes dates.
+          </div>
+          <button class="primary wide large" (click)="createTrip()">
+            Créer mon voyage →
+          </button>
+        </div>
+      </section>
+    }
+
+    @if (screen === "dashboard" && selectedTrip) {
+      <section class="page dashboard">
+        <button class="back" (click)="go('trips')">← Mes voyages</button>
+        <div class="trip-hero">
+          <div>
+            <span class="status">{{
+              selectedTrip.visibility === "private"
+                ? "🔒 Voyage privé"
+                : "✦ Voyage public"
+            }}</span>
+            <h2>{{ selectedTrip.title }}</h2>
+            <p>
+              📍 {{ selectedTrip.country }}　·　{{
+                formatDate(selectedTrip.startDate)
+              }}
+              — {{ formatDate(selectedTrip.endDate) }}
+            </p>
+          </div>
+          <div class="trip-ticket">
+            <span>Budget douceur</span
+            ><strong>{{
+              formatMoney(selectedTrip.budget, selectedTrip.currency)
+            }}</strong
+            ><small>{{ selectedTrip.days.length }} jours d’évasion</small>
+          </div>
+        </div>
+        <div class="dashboard-grid">
+          <div class="days">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Ton itinéraire</span>
+                <h3>Jour après jour</h3>
+              </div>
+              <span class="badge">{{ selectedTrip.days.length }} jours</span>
+            </div>
+            @for (day of selectedTrip.days; track day.date) {
+              <div class="day-row" (click)="openJournal(day)">
+                <div class="day-number">
+                  {{ day.label.replace("Jour ", "") }}
+                </div>
+                <div>
+                  <strong>{{ day.label }}</strong
+                  ><span>{{ formatDate(day.date) }}</span>
+                </div>
+                <div class="day-placeholder">
+                  {{ day.note || "Rien de prévu… et c’est très bien." }}
+                </div>
+                <button aria-label="Ajouter">＋</button>
+              </div>
+            }
+          </div>
+          <aside>
+            <div class="paper-card recap">
+              <h3>En un coup d’œil</h3>
+              <div>
+                <span>✈</span>
+                <p>
+                  <small>Destination</small><b>{{ selectedTrip.country }}</b>
+                </p>
+              </div>
+              <div>
+                <span>◷</span>
+                <p>
+                  <small>Durée</small
+                  ><b>{{ selectedTrip.days.length }} jours</b>
+                </p>
+              </div>
+              <div>
+                <span>♡</span>
+                <p>
+                  <small>Budget</small
+                  ><b>{{
+                    formatMoney(selectedTrip.budget, selectedTrip.currency)
+                  }}</b>
+                </p>
+              </div>
+            </div>
+            <button class="secondary wide">Modifier le voyage</button
+            ><button
+              class="danger-link wide"
+              (click)="deleteTrip(selectedTrip)"
+            >
+              Supprimer ce voyage
+            </button>
+          </aside>
+        </div>
+      </section>
+    }
+
+    @if (screen === "journal" && selectedTrip && selectedDay) {
+      <section class="page journal-page">
+        <button class="back" (click)="openTrip(selectedTrip)">← {{ selectedTrip.title }}</button>
+        <div class="journal-head"><div><span class="eyebrow">{{ selectedDay.label }} · {{ formatDate(selectedDay.date) }}</span><h2>Raconte ta journée</h2><p>Dépose tes souvenirs, l’IA les transformera en une page de carnet.</p></div><span class="autosave">☁ Brouillon automatique</span></div>
+        <div class="journal-workspace">
+          <div class="journal-editor">
+            <div class="paper-card memory-input">
+              <span class="eyebrow">1 · Tes souvenirs bruts</span><h3>Que s’est-il passé ?</h3>
+              <div class="media-actions"><label class="secondary upload">📸 Photos & vidéos<input type="file" accept="image/*,video/*" multiple (change)="addMedia($event)"></label><button class="secondary record" [class.recording]="recording" (click)="toggleRecording()">{{ recording ? '■ Arrêter' : '🎙️ Raconter ma journée' }}</button></div>
+              @if (journalMedia.length) { <div class="media-strip">@for (media of journalMedia; track media.id) { <div class="media-thumb" [class.audio]="media.media_type === 'audio'">@if (media.media_type === 'photo') { <img [src]="media.url" [alt]="media.original_name"> } @else if (media.media_type === 'video') { <video [src]="media.url"></video><span>▶</span> } @else { <b>🎙️</b><small>Récit vocal</small> }</div> }</div> }
+              <label>Ton récit écrit ou retranscrit<textarea class="story-input" [(ngModel)]="journal.rawText" (ngModelChange)="scheduleAutosave()" placeholder="Je suis arrivée à Ho Chi Minh à neuf heures…"></textarea></label>
+              <button class="primary wide large magic-button" [disabled]="generating" (click)="generateJournal()">{{ generating ? '✨ L’IA assemble tes souvenirs…' : '✨ Générer ma journée' }}</button>
+            </div>
+            @if (journal.title || journal.events.length) {
+              <div class="paper-card generated-page" [class.timeline-layout]="journal.layout === 'timeline'">
+                <div class="generated-toolbar"><span class="eyebrow">2 · Ta page générée</span><div><button [class.active]="journal.layout === 'editorial'" (click)="journal.layout='editorial'; scheduleAutosave()">Éditorial</button><button [class.active]="journal.layout === 'timeline'" (click)="journal.layout='timeline'; scheduleAutosave()">Timeline</button></div></div>
+                @if (journalMedia.length && journal.layout === 'editorial') { <img class="journal-cover" [src]="journalMedia[0].url" alt="Photo de couverture"> }
+                <input class="journal-title-input" [(ngModel)]="journal.title" (ngModelChange)="scheduleAutosave()" placeholder="Titre de la journée">
+                <textarea class="journal-summary" [(ngModel)]="journal.summary" (ngModelChange)="scheduleAutosave()"></textarea>
+                <div class="event-list">@for (event of journal.events; track event.order; let index = $index) { <article class="journal-event"><span>{{ event.time || ('0' + (index + 9)).slice(-2) + ':00' }}</span><div><input [(ngModel)]="event.title" (ngModelChange)="scheduleAutosave()"><textarea [(ngModel)]="event.description" (ngModelChange)="scheduleAutosave()"></textarea>@if (event.place) { <small>📍 {{ event.place }}</small> }</div></article> }</div>
+                <div class="publish-actions"><button class="secondary" (click)="saveJournal(false)">Enregistrer le brouillon</button><button class="primary" (click)="journal.status='published'; saveJournal(false)">Enregistrer ma journée ✦</button></div>
+              </div>
+            }
+          </div>
+          <aside class="journal-sidebar">
+            <div class="paper-card place-panel"><span class="eyebrow">Lieux proposés</span><h3>À confirmer</h3><p>L’IA suggère, toi seule décides.</p>@if (!journal.places.length) { <div class="mini-empty">📍 Les lieux détectés apparaîtront ici.</div> }@for (place of journal.places; track place.name) { <div class="place-suggestion" [class.resolved]="place.status === 'rejected'"><b>{{ place.name }}</b><small>{{ place.city || selectedTrip.country }} · {{ place.category }}</small>@if (!place.status || place.status === 'pending') { <div><button (click)="confirmPlace(place,true)">✓ C’est bien ça</button><button (click)="confirmPlace(place,false)">✕</button></div> } @else if (place.status === 'confirmed') { <span>✓ Lieu confirmé</span><div class="place-rating"><button [class.active]="place.liked" (click)="ratePlace(place,'liked',true)">♡ J’ai aimé</button><button [class.active]="place.recommended" (click)="ratePlace(place,'recommended',true)">✦ Je recommande</button><button [class.active]="place.recommended === false" (click)="ratePlace(place,'recommended',false)">Je ne recommande pas</button></div> } @else { <span>Ignoré</span> }</div> }</div>
+            <div class="paper-card expense-panel"><span class="eyebrow">Dépenses</span><h3>Ajouter une dépense</h3><input [(ngModel)]="expense.label" placeholder="Ex. Déjeuner"><div><input type="number" [(ngModel)]="expense.amount" placeholder="Montant"><b>{{ selectedTrip.currency }}</b></div><button class="secondary wide" (click)="addExpense()">＋ Ajouter</button></div>
+            <div class="privacy-note">🔒 Tes notes et brouillons restent privés tant que tu ne publies pas la journée.</div>
+          </aside>
+        </div>
+      </section>
+    }
+
+    @if (screen === "profile") {
+      <section class="page profile-page">
+        <div class="page-title">
+          <div>
+            <span class="eyebrow">Ton espace à toi</span>
+            <h2>Profil & paramètres</h2>
+          </div>
+          <button class="secondary" (click)="logout()">Se déconnecter</button>
+        </div>
+        <div class="profile-grid">
+          <aside class="paper-card profile-summary">
+            <div class="big-avatar">{{ user.avatar }}</div>
+            <h3>{{ user.firstname || "Élodie" }}</h3>
+            <p>&#64;{{ user.username || "exploratrice" }}</p>
+            <span class="private-pill">🔒 Questionnaire privé</span>
+          </aside>
+          <div class="paper-card profile-form">
+            <h3>Mon profil public</h3>
+            <p>
+              Ces informations peuvent être visibles si tu rends un voyage
+              public.
+            </p>
+            <div class="field-row">
+              <label>Prénom<input [(ngModel)]="user.firstname" /></label
+              ><label>Pseudo<input [(ngModel)]="user.username" /></label>
+            </div>
+            <label>E-mail<input [(ngModel)]="user.email" type="email" /></label
+            ><label
+              >Ma bio<textarea
+                [(ngModel)]="user.bio"
+                placeholder="Quelques mots sur toi…"
+              ></textarea></label
+            ><button class="primary" (click)="saveProfile()">
+              Enregistrer
+            </button>
+            <hr />
+            <div class="privacy-block">
+              <span>🔒</span>
+              <div>
+                <h3>Mon profil voyageur privé</h3>
+                <p>
+                  Sensibilités, alimentation et préférences ne sont jamais
+                  partagées.
+                </p>
+              </div>
+              <button class="secondary" (click)="go('questionnaire')">
+                Modifier
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
     }
   </main>
 
-  @if (screen !== 'splash' && screen !== 'auth' && screen !== 'questionnaire') { <footer><span class="brand">✦ Odyssea</span><p>Voyage doucement, rêve grand.</p><small>© 2026 · Fait avec ♡ à Lyon</small></footer> }
-  @if (toast) { <div class="toast">{{ toast }}</div> }
+  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire") {
+    <footer>
+      <span class="brand">✦ To Get There</span>
+      <p>Voyage doucement, rêve grand.</p>
+      <small>© 2026 · Fait avec ♡ à Lyon</small>
+    </footer>
+  }
+  @if (toast) {
+    <div class="toast">{{ toast }}</div>
+  }
 </div>
 
-<ng-template #tripCard let-trip><article class="trip-card" (click)="openTrip(trip)" tabindex="0"><div class="trip-visual"><span class="privacy">{{ trip.visibility === 'private' ? '🔒 Privé' : '✦ Public' }}</span><div class="landscape"><i></i><b></b><em>✦</em></div></div><div class="trip-content"><span>{{ formatDate(trip.startDate) }} — {{ formatDate(trip.endDate) }}</span><h3>{{ trip.title }}</h3><p>📍 {{ trip.country }}</p><div><small>{{ trip.days.length }} jours</small><strong>{{ formatMoney(trip.budget, trip.currency) }}</strong></div></div></article></ng-template>
+<ng-template #tripCard let-trip
+  ><article class="trip-card" (click)="openTrip(trip)" tabindex="0">
+    <div class="trip-visual">
+      <span class="privacy">{{
+        trip.visibility === "private" ? "🔒 Privé" : "✦ Public"
+      }}</span>
+      <div class="landscape"><i></i><b></b><em>✦</em></div>
+    </div>
+    <div class="trip-content">
+      <span
+        >{{ formatDate(trip.startDate) }} — {{ formatDate(trip.endDate) }}</span
+      >
+      <h3>{{ trip.title }}</h3>
+      <p>📍 {{ trip.country }}</p>
+      <div>
+        <small>{{ trip.days.length }} jours</small
+        ><strong>{{ formatMoney(trip.budget, trip.currency) }}</strong>
+      </div>
+    </div>
+  </article></ng-template
+>

@@ -3,10 +3,10 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SupabaseService } from './supabase.service';
 
-type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'profile';
+type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'journal' | 'profile';
 type AuthMode = 'login' | 'signup' | 'forgot';
 
-interface TripDay { date: string; label: string; note: string; }
+interface TripDay { id?: string; date: string; label: string; note: string; }
 interface Trip {
   id: string; title: string; country: string; startDate: string; endDate: string;
   currency: string; budget: number | null; visibility: 'private' | 'public'; days: TripDay[];
@@ -30,6 +30,15 @@ export class AppComponent implements OnInit {
   questionnaire = { personality: 'curieuse', anxiety: 2, noise: 2, crowd: 2, diet: '', allergies: '', mobility: '', notes: '' };
   tripForm = { title: 'Vietnam 2026', country: 'Vietnam', startDate: '2026-04-12', endDate: '2026-04-24', currency: 'EUR', budget: 2400 as number | null, visibility: 'private' as 'private' | 'public' };
   trips: Trip[] = [];
+  selectedDay: TripDay | null = null;
+  journal = { title: '', summary: '', rawText: '', layout: 'editorial', coverMediaId: '', status: 'draft', events: [] as any[], places: [] as any[] };
+  journalMedia: any[] = [];
+  generating = false;
+  recording = false;
+  expense = { label: '', amount: null as number | null };
+  private recorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
+  private autosaveTimer?: ReturnType<typeof setTimeout>;
 
   constructor(private readonly supabase: SupabaseService) {}
 
@@ -88,6 +97,49 @@ export class AppComponent implements OnInit {
     } catch (error) { this.notify(this.errorMessage(error)); }
   }
   openTrip(trip: Trip) { this.selectedTrip = trip; this.go('dashboard'); }
+  async openJournal(day: TripDay) {
+    if (!day.id) { this.notify('Cette journée doit être synchronisée avec Supabase.'); return; }
+    this.selectedDay = day; this.journal = { title: '', summary: '', rawText: '', layout: 'editorial', coverMediaId: '', status: 'draft', events: [], places: [] }; this.journalMedia = []; this.go('journal');
+    try {
+      const [saved, media] = await Promise.all([this.supabase.journal(day.id), this.supabase.media(day.id)]);
+      this.journalMedia = media;
+      if (saved) this.journal = { title: saved.title ?? '', summary: saved.summary ?? '', rawText: saved.raw_text ?? '', layout: saved.layout ?? 'editorial', coverMediaId: saved.cover_media_id ?? '', status: saved.status ?? 'draft', events: (saved.journal_events ?? []).sort((a: any,b: any) => a.event_order-b.event_order), places: saved.place_candidates ?? [] };
+    } catch (error) { this.notify(this.errorMessage(error)); }
+  }
+  async addMedia(event: Event) {
+    const input = event.target as HTMLInputElement; const files = Array.from(input.files ?? []);
+    if (!this.selectedTrip || !this.selectedDay?.id || !files.length) return;
+    try { const user = await this.requireUser(); for (const file of files) this.journalMedia.push(await this.supabase.uploadMedia(user.id, this.selectedTrip.id, this.selectedDay.id, file)); this.notify(`${files.length} média${files.length > 1 ? 's' : ''} ajouté${files.length > 1 ? 's' : ''}`); }
+    catch (error) { this.notify(this.errorMessage(error)); } finally { input.value = ''; }
+  }
+  async toggleRecording() {
+    if (this.recording) { this.recorder?.stop(); this.recording = false; return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); this.audioChunks = [];
+      this.recorder = new MediaRecorder(stream); this.recorder.ondataavailable = e => this.audioChunks.push(e.data);
+      this.recorder.onstop = async () => { stream.getTracks().forEach(t => t.stop()); await this.processRecording(); };
+      this.recorder.start(); this.recording = true;
+    } catch { this.notify('Impossible d’accéder au microphone.'); }
+  }
+  private async processRecording() {
+    if (!this.selectedTrip || !this.selectedDay?.id) return;
+    try { this.generating = true; const user = await this.requireUser(); const file = new File([new Blob(this.audioChunks, { type: 'audio/webm' })], `recit-${Date.now()}.webm`, { type: 'audio/webm' }); const media = await this.supabase.uploadMedia(user.id, this.selectedTrip.id, this.selectedDay.id, file); this.journalMedia.push(media); this.journal.rawText = await this.supabase.transcribe(media.storage_path); this.scheduleAutosave(); this.notify('Ton récit a été retranscrit ✨'); }
+    catch (error) { this.notify(this.errorMessage(error)); } finally { this.generating = false; }
+  }
+  async generateJournal() {
+    if (!this.selectedDay?.id || !this.journal.rawText.trim()) { this.notify('Raconte ou écris d’abord ta journée.'); return; }
+    try { this.generating = true; const result = await this.supabase.generateJournal(this.selectedDay.id, this.journal.rawText, this.journalMedia.map(m => ({ id: m.id, type: m.media_type, name: m.original_name }))); this.journal.title = result.title; this.journal.summary = result.summary; this.journal.events = result.events ?? []; this.journal.places = result.placeCandidates ?? []; await this.saveJournal(false); this.notify('Ta journée de carnet est prête ✨'); }
+    catch (error) { this.notify(this.errorMessage(error)); } finally { this.generating = false; }
+  }
+  scheduleAutosave() { clearTimeout(this.autosaveTimer); this.autosaveTimer = setTimeout(() => this.saveJournal(true), 900); }
+  async saveJournal(silent = false) {
+    if (!this.selectedDay?.id) return;
+    try { await this.supabase.saveJournal(this.selectedDay.id, { title: this.journal.title, summary: this.journal.summary, raw_text: this.journal.rawText, layout: this.journal.layout, cover_media_id: this.journal.coverMediaId || null, status: this.journal.status }, this.journal.events); if (!silent) this.notify('Brouillon enregistré'); }
+    catch (error) { if (!silent) this.notify(this.errorMessage(error)); }
+  }
+  async confirmPlace(place: any, decision: boolean) { place.status = decision ? 'confirmed' : 'rejected'; try { if (!place.id) return; if (decision && this.selectedDay?.id) { const visit = await this.supabase.confirmPlaceCandidate(place, this.selectedDay.id); place.visitId = visit.id; } else await this.supabase.updatePlaceCandidate(place.id, 'rejected'); } catch (error) { place.status = 'pending'; this.notify(this.errorMessage(error)); } }
+  async ratePlace(place: any, field: 'liked' | 'recommended', value: boolean) { place[field] = value; try { if (place.visitId) await this.supabase.ratePlaceVisit(place.visitId, { [field]: value }); } catch (error) { this.notify(this.errorMessage(error)); } }
+  async addExpense() { if (!this.selectedDay?.id || !this.expense.label || !this.expense.amount) return; try { await this.supabase.saveExpense(this.selectedDay.id, this.expense.label, this.expense.amount, this.selectedTrip?.currency ?? 'EUR'); this.expense = { label: '', amount: null }; this.notify('Dépense ajoutée'); } catch (error) { this.notify(this.errorMessage(error)); } }
   async deleteTrip(trip: Trip) {
     if (!confirm(`Supprimer « ${trip.title} » ?`)) return;
     try { await this.supabase.deleteTrip(trip.id); this.trips = this.trips.filter(t => t.id !== trip.id); this.go('trips'); this.notify('Voyage supprimé'); }
@@ -110,7 +162,7 @@ export class AppComponent implements OnInit {
       this.trips = trips.map(data => this.mapTrip(data)); this.go(traveler?.completed_at ? 'home' : 'questionnaire');
     } catch (error) { this.notify(this.errorMessage(error)); }
   }
-  private mapTrip(data: any): Trip { return { id: data.id, title: data.title, country: data.country, startDate: data.start_date, endDate: data.end_date, currency: data.currency, budget: data.planned_budget == null ? null : Number(data.planned_budget), visibility: data.visibility, days: (data.trip_days ?? []).sort((a: any, b: any) => a.day_number - b.day_number).map((day: any) => ({ date: day.day_date, label: `Jour ${day.day_number}`, note: day.notes ?? '' })) }; }
+  private mapTrip(data: any): Trip { return { id: data.id, title: data.title, country: data.country, startDate: data.start_date, endDate: data.end_date, currency: data.currency, budget: data.planned_budget == null ? null : Number(data.planned_budget), visibility: data.visibility, days: (data.trip_days ?? []).sort((a: any, b: any) => a.day_number - b.day_number).map((day: any) => ({ id: day.id, date: day.day_date, label: `Jour ${day.day_number}`, note: day.notes ?? '' })) }; }
   private async requireUser() { const user = await this.supabase.currentUser(); if (!user) throw new Error('Ta session a expiré, reconnecte-toi.'); return user; }
   private toList(value: string) { return value.split(',').map(item => item.trim()).filter(Boolean); }
   private errorMessage(error: unknown) { return error instanceof Error ? error.message : 'Une erreur est survenue avec Supabase.'; }
