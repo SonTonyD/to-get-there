@@ -10,3 +10,46 @@
 @media(max-width:850px){.insights-grid{grid-template-columns:1fr}.budget-numbers{grid-template-columns:1fr 1fr}.publish-panel{align-items:stretch;flex-direction:column}.publish-controls{align-items:stretch}.explore-hero h2{font-size:2.7rem}.public-trip-hero{padding:35px 20px}.public-trip-hero h2{font-size:3rem}.public-stats div{padding:12px 20px}}
 .public-author{max-width:720px;margin:0 auto 35px;padding:24px;display:flex;gap:22px;align-items:center}.public-author .big-avatar{flex:0 0 auto;width:78px;height:78px;font-size:2rem}.public-author h3,.public-author p{margin:3px 0}.public-author p{color:var(--muted)}.country-chips{display:flex;gap:7px;margin-top:8px}.country-chips button{border:0;border-radius:999px;padding:6px 10px;background:#eee7f7;color:var(--violet);font-weight:800;font-size:.72rem}
 .public-trip-hero{background-size:cover;background-position:center}.public-photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:30px}.public-photo-grid img{width:100%;height:210px;object-fit:cover;border-radius:16px}
+
+/* Mobile-first hardening for feature screens */
+@media(max-width:700px){
+  .page{width:100%;min-width:0;padding:28px 14px 50px}
+  .paper-card{border-radius:20px}
+  .journal-page>.back,.dashboard>.back{margin-bottom:14px;max-width:100%;text-align:left}
+  .journal-head{margin-bottom:18px}.journal-head h2{font-size:2rem}.journal-head p{font-size:.9rem;line-height:1.5}
+  .journal-workspace,.journal-editor,.journal-sidebar{width:100%;min-width:0}
+  .journal-workspace{display:flex;flex-direction:column;gap:16px}
+  .journal-editor{order:1;gap:16px}.journal-sidebar{order:2;grid-row:auto;gap:12px}
+  .memory-input,.generated-page,.place-panel,.expense-panel{width:100%;min-width:0;padding:18px}
+  .memory-input h3,.place-panel h3,.expense-panel h3{font-size:1.25rem;margin-bottom:12px}
+  .media-actions{display:grid;grid-template-columns:1fr;gap:8px;margin:14px 0}
+  .media-actions .secondary{min-height:48px;padding:11px 12px;white-space:normal;text-align:center}
+  .media-strip{width:calc(100% + 6px);margin-right:-6px;padding:4px 3px 12px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+  .media-thumb{width:88px;height:78px;scroll-snap-align:start}
+  .story-input{min-height:150px;font-size:16px;padding:12px}
+  .magic-button{min-height:50px;white-space:normal;line-height:1.25}
+  .generated-toolbar{width:100%;margin-bottom:14px}.generated-toolbar>div{display:grid;grid-template-columns:1fr 1fr;width:100%}.generated-toolbar button{min-height:40px}
+  .journal-cover{height:190px;border-radius:15px;margin-bottom:12px}
+  .journal-title-input{font-size:2rem;line-height:1.15;min-width:0}
+  .journal-summary{font-size:16px;min-height:120px}
+  .journal-event{grid-template-columns:1fr;gap:7px;padding:15px 0}.journal-event>span{font-size:.78rem}.journal-event input{font-size:1rem}.journal-event textarea{font-size:16px;min-height:90px}
+  .timeline-layout .journal-event{margin-left:4px;padding-left:14px}
+  .journal-gallery{grid-template-columns:1fr 1fr;gap:7px}.journal-gallery img{height:115px}
+  .publish-actions{display:grid;grid-template-columns:1fr;gap:8px}.publish-actions button{width:100%;min-height:46px}
+  .place-suggestion>div,.place-rating{display:grid;grid-template-columns:1fr!important;width:100%}.place-suggestion button{min-height:39px;width:100%}
+  .expense-panel input,.expense-panel select{font-size:16px;min-width:0}.expense-panel>div{display:grid;grid-template-columns:minmax(0,1fr) 94px;align-items:start}.expense-panel>div select{width:94px}
+  .trip-hero{padding:24px 18px;border-radius:22px}.trip-hero h2{font-size:2.55rem;overflow-wrap:anywhere}.trip-hero p{font-size:.82rem;line-height:1.55}.trip-ticket{min-width:0;width:100%;padding:18px}
+  .dashboard-grid{gap:16px}.dashboard-grid aside{min-width:0}.day-row{grid-template-columns:42px minmax(0,1fr) 34px;gap:10px;padding:12px}.day-row>div:nth-child(2){min-width:0}.day-row button{grid-column:3}.day-placeholder{display:none}
+  .insights-grid{gap:16px;margin-top:18px}.budget-panel,.map-panel,.publish-panel{padding:18px}.budget-numbers{grid-template-columns:1fr 1fr;gap:7px}.budget-numbers div{padding:10px}.budget-numbers strong{font-size:1rem;overflow-wrap:anywhere}.category-list{grid-template-columns:1fr}
+  #trip-map{height:250px}.map-empty{bottom:32px;width:82%}
+  .publish-panel{margin-top:16px;gap:18px}.publish-controls{width:100%}.visibility-checks{display:grid;grid-template-columns:1fr 1fr;gap:10px}.visibility-checks label{padding:9px;background:#faf8fc;border-radius:10px}.publish-controls>button{width:100%}
+  .explore-hero{padding:20px 0}.explore-hero h2{font-size:2.3rem}.search-box{width:100%;padding:4px 12px}.search-box input{font-size:16px;min-width:0}.public-grid,.place-public-grid{grid-template-columns:1fr}
+  .public-trip-hero{padding:30px 16px;border-radius:22px}.public-trip-hero h2{font-size:2.7rem;overflow-wrap:anywhere}.public-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;width:calc(100% - 16px);margin:-20px auto 25px}.public-stats div{min-width:0;padding:11px 5px}.public-author{align-items:flex-start;padding:18px;gap:13px}.public-author .big-avatar{width:56px;height:56px;font-size:1.4rem}.public-author>div:last-child{min-width:0}.country-chips{flex-wrap:wrap}.public-photo-grid{grid-template-columns:1fr 1fr;gap:7px}.public-photo-grid img{height:135px}.public-days article{padding:18px}
+  .profile-form{padding:20px}.privacy-block{display:grid;grid-template-columns:auto 1fr}.privacy-block button{grid-column:1/-1;width:100%}
+  .toast{bottom:15px;width:calc(100% - 28px);max-width:420px;text-align:center;border-radius:16px;padding:12px 15px}
+}
+@media(max-width:390px){
+  .page{padding-inline:10px}.memory-input,.generated-page,.place-panel,.expense-panel,.budget-panel,.map-panel,.publish-panel{padding:15px}
+  .budget-numbers{grid-template-columns:1fr}.public-author{display:block}.public-author .big-avatar{margin:0 0 12px}.public-photo-grid{grid-template-columns:1fr}.public-photo-grid img{height:190px}
+  .visibility-checks{grid-template-columns:1fr}.trip-hero h2{font-size:2.2rem}
+}
