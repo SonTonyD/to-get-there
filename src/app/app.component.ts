@@ -2,8 +2,9 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SupabaseService } from './supabase.service';
+import * as L from 'leaflet';
 
-type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'journal' | 'profile';
+type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'journal' | 'explore' | 'public-trip' | 'profile';
 type AuthMode = 'login' | 'signup' | 'forgot';
 
 interface TripDay { id?: string; date: string; label: string; note: string; }
@@ -35,7 +36,11 @@ export class AppComponent implements OnInit {
   journalMedia: any[] = [];
   generating = false;
   recording = false;
-  expense = { label: '', amount: null as number | null };
+  expense = { label: '', amount: null as number | null, convertedAmount: null as number | null, currency: 'EUR', category: 'Restauration' };
+  expenses: any[] = []; placeVisits: any[] = []; tripStats: any = null;
+  publication = { photos: true, story: true, recommendations: true, budget: false };
+  exploreSearch = ''; publicTrips: any[] = []; selectedPublicTrip: any = null;
+  private map?: L.Map;
   private recorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private autosaveTimer?: ReturnType<typeof setTimeout>;
@@ -96,10 +101,12 @@ export class AppComponent implements OnInit {
       const trip = this.mapTrip(data); this.trips.unshift(trip); this.openTrip(trip); this.notify('Voyage créé, l’aventure commence !');
     } catch (error) { this.notify(this.errorMessage(error)); }
   }
-  openTrip(trip: Trip) { this.selectedTrip = trip; this.go('dashboard'); }
+  openTrip(trip: Trip) { this.selectedTrip = trip; this.go('dashboard'); this.loadTripInsights(); }
+  async loadTripInsights() { if (!this.selectedTrip) return; try { [this.expenses,this.placeVisits,this.tripStats] = await Promise.all([this.supabase.expenses(this.selectedTrip.id),this.supabase.placeVisits(this.selectedTrip.id),this.supabase.tripStatistics(this.selectedTrip.id)]); setTimeout(()=>this.renderMap(),0); } catch (error) { this.notify(this.errorMessage(error)); } }
+  private renderMap() { const element=document.getElementById('trip-map'); if (!element) return; this.map?.remove(); const points=this.placeVisits.filter(v=>v.places?.latitude!=null&&v.places?.longitude!=null); this.map=L.map(element).setView(points.length?[points[0].places.latitude,points[0].places.longitude]:[16.05,108.2],points.length?7:5); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(this.map); const bounds:L.LatLngExpression[]=[]; points.forEach(visit=>{const point:[number,number]=[visit.places.latitude,visit.places.longitude];bounds.push(point);const marker=L.circleMarker(point,{radius:9,color:'#76529a',fillColor:'#c8b6ff',fillOpacity:.9}).addTo(this.map!).bindTooltip(`${visit.places.name} · ${visit.places.city??''}`);marker.on('click',()=>{const day=this.selectedTrip?.days.find(item=>item.id===visit.trip_day_id);if(day)this.openJournal(day)});});if(bounds.length>1)this.map.fitBounds(L.latLngBounds(bounds),{padding:[30,30]}); }
   async openJournal(day: TripDay) {
     if (!day.id) { this.notify('Cette journée doit être synchronisée avec Supabase.'); return; }
-    this.selectedDay = day; this.journal = { title: '', summary: '', rawText: '', layout: 'editorial', coverMediaId: '', status: 'draft', events: [], places: [] }; this.journalMedia = []; this.go('journal');
+    this.selectedDay = day; this.expense.currency = this.selectedTrip?.currency ?? 'EUR'; this.journal = { title: '', summary: '', rawText: '', layout: 'editorial', coverMediaId: '', status: 'draft', events: [], places: [] }; this.journalMedia = []; this.go('journal');
     try {
       const [saved, media] = await Promise.all([this.supabase.journal(day.id), this.supabase.media(day.id)]);
       this.journalMedia = media;
@@ -144,7 +151,19 @@ export class AppComponent implements OnInit {
   get coverPhoto() { return this.photoMedia.find(media => media.id === this.journal.coverMediaId) ?? this.photoMedia[0] ?? null; }
   get galleryPhotos() { return this.photoMedia.filter(media => media.id !== this.coverPhoto?.id).slice(0, 3); }
   selectCover(media: any) { this.journal.coverMediaId = media.id; this.scheduleAutosave(); }
-  async addExpense() { if (!this.selectedDay?.id || !this.expense.label || !this.expense.amount) return; try { await this.supabase.saveExpense(this.selectedDay.id, this.expense.label, this.expense.amount, this.selectedTrip?.currency ?? 'EUR'); this.expense = { label: '', amount: null }; this.notify('Dépense ajoutée'); } catch (error) { this.notify(this.errorMessage(error)); } }
+  async addExpense() { if (!this.selectedTrip || !this.selectedDay?.id || !this.expense.label || !this.expense.amount) return; try { const converted=this.expense.currency===this.selectedTrip.currency?this.expense.amount:this.expense.convertedAmount;if(converted==null){this.notify(`Indique l’équivalent en ${this.selectedTrip.currency}`);return} await this.supabase.saveExpense(this.selectedTrip.id,this.selectedDay.id,{label:this.expense.label,amount:this.expense.amount,currency:this.expense.currency,convertedAmount:converted,convertedCurrency:this.selectedTrip.currency,category:this.expense.category,date:this.selectedDay.date}); this.expense = { label: '', amount: null, convertedAmount:null, currency:this.selectedTrip.currency, category:'Restauration' }; this.notify('Dépense ajoutée'); } catch (error) { this.notify(this.errorMessage(error)); } }
+  get spentTotal(){return this.expenses.reduce((sum,e)=>sum+Number(e.converted_amount??e.amount),0)}
+  get remainingBudget(){return (this.selectedTrip?.budget??0)-this.spentTotal}
+  get dailyAverage(){return this.selectedTrip?.days.length?this.spentTotal/this.selectedTrip.days.length:0}
+  categoryTotal(category:string){return this.expenses.filter(e=>e.category===category).reduce((sum,e)=>sum+Number(e.converted_amount??e.amount),0)}
+  async completeTrip(){if(!this.selectedTrip)return;try{this.tripStats=await this.supabase.finishTrip(this.selectedTrip.id);this.notify('Voyage terminé · ta page en chiffres est prête !')}catch(error){this.notify(this.errorMessage(error))}}
+  async publishTrip(){if(!this.selectedTrip)return;try{const slug=await this.supabase.publishTrip(this.selectedTrip.id,this.publication);this.notify(`Voyage publié : ${slug}`)}catch(error){this.notify(this.errorMessage(error))}}
+  async openExplore(){this.go('explore');try{this.publicTrips=await this.supabase.explorePublicTrips()}catch(error){this.notify(this.errorMessage(error))}}
+  get filteredPublicTrips(){const q=this.exploreSearch.trim().toLowerCase();return this.publicTrips.filter(item=>!q||item.snapshot?.trip?.country?.toLowerCase().includes(q)||item.snapshot?.trip?.title?.toLowerCase().includes(q)||item.snapshot?.places?.some((p:any)=>p.city?.toLowerCase().includes(q)))}
+  get publicAuthorTrips(){const id=this.selectedPublicTrip?.author?.id;return this.publicTrips.filter(item=>item.snapshot?.author?.id===id)}
+  get publicAuthorCountries(){return [...new Set(this.publicAuthorTrips.map(item=>item.snapshot.trip.country))]}
+  exploreCountry(country:string){this.exploreSearch=country;this.openExplore()}
+  openPublicTrip(item:any){this.selectedPublicTrip=item.snapshot;this.go('public-trip')}
   async deleteTrip(trip: Trip) {
     if (!confirm(`Supprimer « ${trip.title} » ?`)) return;
     try { await this.supabase.deleteTrip(trip.id); this.trips = this.trips.filter(t => t.id !== trip.id); this.go('trips'); this.notify('Voyage supprimé'); }

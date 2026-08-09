@@ -174,8 +174,15 @@ export class SupabaseService {
     return data;
   }
 
-  async saveExpense(dayId: string, label: string, amount: number, currency: string) {
-    const { error } = await this.db.from('expenses').insert({ trip_day_id: dayId, label, amount, currency });
+  async saveExpense(tripId: string, dayId: string, expense: { label: string; amount: number; currency: string; convertedAmount: number; convertedCurrency: string; category: string; date: string }) {
+    const { error } = await this.db.from('expenses').insert({ trip_id: tripId, trip_day_id: dayId, label: expense.label, description: expense.label, amount: expense.amount, converted_amount: expense.convertedAmount, currency: expense.currency, converted_currency: expense.convertedCurrency, category: expense.category, expense_date: expense.date });
     if (error) throw error;
   }
+
+  async expenses(tripId: string) { const { data, error } = await this.db.from('expenses').select('*').eq('trip_id', tripId).order('expense_date'); if (error) throw error; return data ?? []; }
+  async placeVisits(tripId: string) { const { data, error } = await this.db.from('place_visits').select('*, places(*), trip_days!inner(id,day_date,trip_id)').eq('trip_days.trip_id', tripId); if (error) throw error; return data ?? []; }
+  async tripStatistics(tripId: string) { const { data, error } = await this.db.rpc('trip_statistics', { target_trip: tripId }); if (error) throw error; return data; }
+  async finishTrip(tripId: string) { const { data, error } = await this.db.rpc('finish_trip', { target_trip: tripId }); if (error) throw error; return data; }
+  async publishTrip(tripId: string, settings: Record<string, boolean>) { const { data, error } = await this.db.functions.invoke('publish-trip', { body: { tripId, settings } }); if (error) throw error; return data.slug as string; }
+  async explorePublicTrips() { const { data, error } = await this.db.from('trip_publications').select('slug,snapshot,published_at').order('published_at', { ascending: false }); if (error) throw error; return data ?? []; }
 }

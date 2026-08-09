@@ -19,6 +19,7 @@ npx supabase secrets set OPENAI_API_KEY=sk-proj-VOTRE_CLE
 ```bash
 npx supabase functions deploy transcribe-day
 npx supabase functions deploy generate-journal
+npx supabase functions deploy publish-trip
 ```
 
 Les fonctions contrôlent le JWT Supabase de l'utilisateur. `generate-journal` utilise `gpt-5.6-luna` avec un effort faible et deux traitements structurés. `transcribe-day` utilise `gpt-4o-mini-transcribe`.

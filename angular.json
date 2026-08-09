@@ -30,19 +30,20 @@
               "src/styles.css"
             ],
             "scripts": []
+            ,"allowedCommonJsDependencies": ["leaflet"]
           },
           "configurations": {
             "production": {
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "600kB",
+                  "maximumWarning": "800kB",
                   "maximumError": "1MB"
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "22kB",
-                  "maximumError": "26kB"
+                  "maximumWarning": "27kB",
+                  "maximumError": "32kB"
                 }
               ],
               "outputHashing": "all"

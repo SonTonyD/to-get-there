@@ -309,3 +309,100 @@ on conflict (id) do nothing;
 create policy trip_media_storage_select on storage.objects for select to authenticated using (bucket_id='trip-media' and (storage.foldername(name))[1]=auth.uid()::text);
 create policy trip_media_storage_insert on storage.objects for insert to authenticated with check (bucket_id='trip-media' and (storage.foldername(name))[1]=auth.uid()::text);
 create policy trip_media_storage_delete on storage.objects for delete to authenticated using (bucket_id='trip-media' and (storage.foldername(name))[1]=auth.uid()::text);
+
+-- ============================================================
+-- Sous-lot 1C · Budget, carte, clôture et publication contrôlée
+-- ============================================================
+alter table public.expenses add column trip_id uuid references public.trips(id) on delete cascade;
+alter table public.expenses add column converted_amount numeric(12,2) check (converted_amount is null or converted_amount >= 0);
+alter table public.expenses add column converted_currency char(3);
+alter table public.expenses add column description text;
+alter table public.expenses add column place_id uuid references public.places(id) on delete set null;
+alter table public.expenses add column expense_date date;
+update public.expenses e set trip_id=d.trip_id, expense_date=d.day_date from public.trip_days d where d.id=e.trip_day_id;
+alter table public.expenses alter column trip_id set not null;
+alter table public.expenses alter column expense_date set not null;
+
+alter table public.trips add column completed_at timestamptz;
+
+create table public.trip_publications (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null unique references public.trips(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  slug text not null unique,
+  visibility_settings jsonb not null,
+  snapshot jsonb not null,
+  published_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.profile_countries (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  country text not null,
+  manually_added boolean not null default true,
+  primary key(user_id,country)
+);
+
+create trigger publications_touch before update on public.trip_publications for each row execute function public.touch_updated_at();
+alter table public.trip_publications enable row level security;
+alter table public.profile_countries enable row level security;
+create policy publications_public_read on public.trip_publications for select using (true);
+create policy publications_owner_delete on public.trip_publications for delete using (owner_id=auth.uid());
+create policy countries_public_read on public.profile_countries for select using (true);
+create policy countries_owner_all on public.profile_countries for all using(user_id=auth.uid()) with check(user_id=auth.uid());
+
+create or replace function public.trip_statistics(target_trip uuid) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare result jsonb;
+begin
+  if not exists(select 1 from public.trips where id=target_trip and owner_id=auth.uid()) then raise exception 'Voyage non autorisé'; end if;
+  select jsonb_build_object(
+    'days', (t.end_date-t.start_date)+1,
+    'cities', (select count(distinct p.city) from public.place_visits v join public.trip_days d on d.id=v.trip_day_id join public.places p on p.id=v.place_id where d.trip_id=t.id and p.city is not null),
+    'places', (select count(*) from public.place_visits v join public.trip_days d on d.id=v.trip_day_id where d.trip_id=t.id),
+    'photos', (select count(*) from public.trip_media m join public.trip_days d on d.id=m.trip_day_id where d.trip_id=t.id and m.media_type='photo'),
+    'spent', coalesce((select sum(coalesce(e.converted_amount,e.amount)) from public.expenses e where e.trip_id=t.id),0),
+    'restaurants', (select count(*) from public.place_visits v join public.trip_days d on d.id=v.trip_day_id where d.trip_id=t.id and lower(v.category) in ('restaurant','restauration')),
+    'cafes', (select count(*) from public.place_visits v join public.trip_days d on d.id=v.trip_day_id where d.trip_id=t.id and lower(v.category) in ('café','cafe')),
+    'activities', (select count(*) from public.place_visits v join public.trip_days d on d.id=v.trip_day_id where d.trip_id=t.id and lower(v.category) in ('activité','activite','musée','musee'))
+  ) into result from public.trips t where t.id=target_trip;
+  return result;
+end; $$;
+
+create or replace function public.finish_trip(target_trip uuid) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare stats jsonb;
+begin
+  if not exists(select 1 from public.trips where id=target_trip and owner_id=auth.uid()) then raise exception 'Voyage non autorisé'; end if;
+  update public.trips set completed_at=now() where id=target_trip;
+  stats:=public.trip_statistics(target_trip);
+  return stats;
+end; $$;
+
+create or replace function public.publish_trip(target_trip uuid, settings jsonb) returns text
+language plpgsql security definer set search_path='' as $$
+declare t public.trips; profile public.profiles; safe_slug text; payload jsonb; stats jsonb;
+begin
+  select * into t from public.trips where id=target_trip and owner_id=auth.uid();
+  if t.id is null then raise exception 'Voyage non autorisé'; end if;
+  select * into profile from public.profiles where id=auth.uid();
+  stats:=public.trip_statistics(target_trip);
+  safe_slug:=lower(regexp_replace(t.title,'[^a-zA-Z0-9]+','-','g'))||'-'||substr(t.id::text,1,8);
+  payload:=jsonb_build_object('trip',jsonb_build_object('id',t.id,'title',t.title,'country',t.country,'startDate',t.start_date,'endDate',t.end_date,'coverImage',t.cover_image),'author',jsonb_build_object('id',profile.id,'username',profile.username,'firstname',profile.firstname,'profilePicture',profile.profile_picture,'bio',profile.bio),'stats',stats);
+  if coalesce((settings->>'story')::boolean,false) then payload:=payload||jsonb_build_object('days',(select coalesce(jsonb_agg(jsonb_build_object('date',d.day_date,'title',j.title,'summary',j.summary,'events',(select coalesce(jsonb_agg(jsonb_build_object('order',e.event_order,'title',e.title,'description',e.description,'place',e.place_text) order by e.event_order),'[]') from public.journal_events e where e.journal_id=j.id)) order by d.day_date),'[]') from public.trip_days d left join public.day_journals j on j.trip_day_id=d.id where d.trip_id=t.id)); end if;
+  if coalesce((settings->>'recommendations')::boolean,false) then payload:=payload||jsonb_build_object('places',(select coalesce(jsonb_agg(jsonb_build_object('name',p.name,'city',p.city,'category',v.category,'liked',v.liked,'recommended',v.recommended,'comment',v.public_comment,'latitude',p.latitude,'longitude',p.longitude)),'[]') from public.place_visits v join public.trip_days d on d.id=v.trip_day_id join public.places p on p.id=v.place_id where d.trip_id=t.id)); end if;
+  if coalesce((settings->>'budget')::boolean,false) then payload:=payload||jsonb_build_object('budget',jsonb_build_object('planned',t.planned_budget,'currency',t.currency,'spent',stats->'spent')); end if;
+  insert into public.trip_publications(trip_id,owner_id,slug,visibility_settings,snapshot) values(t.id,auth.uid(),safe_slug,settings,payload) on conflict(trip_id) do update set visibility_settings=excluded.visibility_settings,snapshot=excluded.snapshot,published_at=now(),updated_at=now();
+  update public.trips set visibility='public' where id=t.id;
+  insert into public.profile_countries(user_id,country,manually_added) values(auth.uid(),t.country,false) on conflict do nothing;
+  return safe_slug;
+end; $$;
+
+grant execute on function public.trip_statistics(uuid) to authenticated;
+grant execute on function public.finish_trip(uuid) to authenticated;
+grant execute on function public.publish_trip(uuid,jsonb) to authenticated;
+
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
+values('published-trip-media','published-trip-media',true,52428800,array['image/jpeg','image/png','image/webp'])
+on conflict(id) do nothing;
+create policy published_media_public_read on storage.objects for select using(bucket_id='published-trip-media');
