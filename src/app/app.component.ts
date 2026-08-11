@@ -10,7 +10,7 @@ type AuthMode = 'login' | 'signup' | 'forgot';
 interface TripDay { id?: string; date: string; label: string; note: string; }
 interface Trip {
   id: string; title: string; country: string; startDate: string; endDate: string;
-  currency: string; budget: number | null; visibility: 'private' | 'public'; days: TripDay[];
+  currency: string; budget: number | null; visibility: 'private' | 'public'; days: TripDay[]; coverUrl?: string;
 }
 
 @Component({
@@ -119,7 +119,7 @@ export class AppComponent implements OnInit {
   async addMedia(event: Event) {
     const input = event.target as HTMLInputElement; const files = Array.from(input.files ?? []);
     if (!this.selectedTrip || !this.selectedDay?.id || !files.length) return;
-    try { const user = await this.requireUser(); for (const file of files) this.journalMedia.push(await this.supabase.uploadMedia(user.id, this.selectedTrip.id, this.selectedDay.id, file)); if (!this.journal.coverMediaId) this.journal.coverMediaId = this.photoMedia[0]?.id ?? ''; this.scheduleAutosave(); this.notify(`${files.length} média${files.length > 1 ? 's' : ''} ajouté${files.length > 1 ? 's' : ''}`); }
+    try { const user = await this.requireUser(); for (const file of files) this.journalMedia.push(await this.supabase.uploadMedia(user.id, this.selectedTrip.id, this.selectedDay.id, file)); if (!this.journal.coverMediaId && this.photoMedia[0]) await this.selectCover(this.photoMedia[0]); else this.scheduleAutosave(); this.notify(`${files.length} média${files.length > 1 ? 's' : ''} ajouté${files.length > 1 ? 's' : ''}`); }
     catch (error) { this.notify(this.errorMessage(error)); } finally { input.value = ''; }
   }
   async toggleRecording() {
@@ -152,7 +152,7 @@ export class AppComponent implements OnInit {
   get photoMedia() { return this.journalMedia.filter(media => media.media_type === 'photo' && media.url); }
   get coverPhoto() { return this.photoMedia.find(media => media.id === this.journal.coverMediaId) ?? this.photoMedia[0] ?? null; }
   get galleryPhotos() { return this.photoMedia.filter(media => media.id !== this.coverPhoto?.id).slice(0, 3); }
-  selectCover(media: any) { this.journal.coverMediaId = media.id; this.scheduleAutosave(); }
+  async selectCover(media: any) { this.journal.coverMediaId = media.id; if(this.selectedTrip){this.selectedTrip.coverUrl=media.url;try{await this.supabase.setTripCover(this.selectedTrip.id,media.storage_path)}catch(error){this.notify(this.errorMessage(error))}} this.scheduleAutosave(); }
   async addExpense() { if (!this.selectedTrip || !this.selectedDay?.id || !this.expense.label || !this.expense.amount) return; try { const converted=this.expense.currency===this.selectedTrip.currency?this.expense.amount:this.expense.convertedAmount;if(converted==null){this.notify(`Indique l’équivalent en ${this.selectedTrip.currency}`);return} await this.supabase.saveExpense(this.selectedTrip.id,this.selectedDay.id,{label:this.expense.label,amount:this.expense.amount,currency:this.expense.currency,convertedAmount:converted,convertedCurrency:this.selectedTrip.currency,category:this.expense.category,date:this.selectedDay.date}); this.expense = { label: '', amount: null, convertedAmount:null, currency:this.selectedTrip.currency, category:'Restauration' }; this.notify('Dépense ajoutée'); } catch (error) { this.notify(this.errorMessage(error)); } }
   get spentTotal(){return this.expenses.reduce((sum,e)=>sum+Number(e.converted_amount??e.amount),0)}
   get remainingBudget(){return (this.selectedTrip?.budget??0)-this.spentTotal}
@@ -166,9 +166,22 @@ export class AppComponent implements OnInit {
   get publicAuthorCountries(){return [...new Set(this.publicAuthorTrips.map(item=>item.snapshot.trip.country))]}
   exploreCountry(country:string){this.exploreSearch=country;this.openExplore()}
   openPublicTrip(item:any){this.selectedPublicTrip=item.snapshot;this.go('public-trip')}
-  async openOwnerReader() { if (!this.selectedTrip) return; try { const days=await this.supabase.tripReader(this.selectedTrip.id); this.readerTrip={ title:this.selectedTrip.title,country:this.selectedTrip.country,startDate:this.selectedTrip.startDate,endDate:this.selectedTrip.endDate,author:this.user.firstname,design:'scrapbook',stats:this.tripStats }; this.readerPages=this.buildReaderPages(days.map((day:any)=>{const journal=day.day_journals?.[0]??day.day_journals??{};return{date:day.day_date,title:journal.title||day.label||`Jour ${day.day_number}`,summary:journal.summary||day.notes||'',layout:journal.layout||'scrapbook',events:(journal.journal_events??[]).sort((a:any,b:any)=>a.event_order-b.event_order).map((event:any)=>({time:event.event_time,title:event.title,description:event.description,place:event.place_text})),photos:(day.trip_media??[]).map((media:any)=>media.url)}}),this.readerTrip); this.readerOrigin='dashboard';this.readerIndex=0;this.go('reader'); } catch(error){this.notify(this.errorMessage(error))} }
-  openPublicReader(){if(!this.selectedPublicTrip)return;const days=(this.selectedPublicTrip.days??[]).map((day:any,index:number)=>({...day,layout:day.layout||this.selectedPublicTrip.design||'editorial',photos:index===0?(this.selectedPublicTrip.photos??[]):[],events:day.events??[]}));this.readerTrip={...this.selectedPublicTrip.trip,author:this.selectedPublicTrip.author.firstname||this.selectedPublicTrip.author.username,design:this.selectedPublicTrip.design||'editorial',stats:this.selectedPublicTrip.stats};this.readerPages=this.buildReaderPages(days,this.readerTrip);this.readerOrigin='public-trip';this.readerIndex=0;this.go('reader')}
-  private buildReaderPages(days:any[],trip:any){const scrapbookDays=days.map((day,index)=>({kind:'day',number:index+1,...day,layout:'scrapbook'}));return[{kind:'cover',layout:'scrapbook',title:trip.title,country:trip.country,author:trip.author,photo:days.flatMap(day=>day.photos??[])[0]??null},{kind:'timeline',layout:'scrapbook',title:'Le fil du voyage',country:trip.country,days:scrapbookDays},...scrapbookDays,{kind:'end',layout:'scrapbook',title:`${trip.country} en chiffres`,stats:trip.stats??{},country:trip.country}]}
+  async openOwnerReader() { if (!this.selectedTrip) return; try { const days=await this.supabase.tripReader(this.selectedTrip.id); this.readerTrip={ title:this.selectedTrip.title,country:this.selectedTrip.country,startDate:this.selectedTrip.startDate,endDate:this.selectedTrip.endDate,author:this.user.firstname,design:'scrapbook',stats:this.tripStats }; this.readerPages=this.buildReaderPages(days.map((day:any)=>{const journal=day.day_journals?.[0]??day.day_journals??{};return{date:day.day_date,title:journal.title||day.label||`Jour ${day.day_number}`,summary:journal.summary||day.notes||'',layout:'scrapbook',events:(journal.journal_events??[]).sort((a:any,b:any)=>a.event_order-b.event_order).map((event:any)=>({time:event.event_time,title:event.title,description:event.description,place:event.place_text})),photos:(day.trip_media??[]).map((media:any)=>media.url).filter(Boolean)}}),this.readerTrip); this.readerOrigin='dashboard';this.readerIndex=0;this.go('reader'); } catch(error){this.notify(this.errorMessage(error))} }
+  openPublicReader(){if(!this.selectedPublicTrip)return;const sourceDays=this.selectedPublicTrip.days??[];const allPhotos=(this.selectedPublicTrip.photos??[]).filter(Boolean);const legacyBuckets=sourceDays.map((_:any,index:number)=>allPhotos.filter((_:string,photoIndex:number)=>photoIndex%Math.max(sourceDays.length,1)===index));const days=sourceDays.map((day:any,index:number)=>({...day,layout:'scrapbook',photos:(this.selectedPublicTrip.photoDays?.[day.date]??legacyBuckets[index]??[]).filter(Boolean),events:day.events??[]}));this.readerTrip={...this.selectedPublicTrip.trip,author:this.selectedPublicTrip.author.firstname||this.selectedPublicTrip.author.username,design:'scrapbook',stats:this.selectedPublicTrip.stats};this.readerPages=this.buildReaderPages(days,this.readerTrip);this.readerOrigin='public-trip';this.readerIndex=0;this.go('reader')}
+  private buildReaderPages(days:any[],trip:any){
+    const usedTitles=new Set<string>();
+    const tripTitle=String(trip.title??'').trim().toLocaleLowerCase('fr');
+    const scrapbookDays=days.map((day,index)=>{
+      const savedTitle=String(day.title??'').trim();
+      const normalized=savedTitle.toLocaleLowerCase('fr');
+      const repeated=!savedTitle||normalized===tripTitle||usedTitles.has(normalized);
+      const eventTitle=String(day.events?.[0]?.title??'').trim();
+      const title=repeated?(eventTitle||`Jour ${index+1}`):savedTitle;
+      usedTitles.add(title.toLocaleLowerCase('fr'));
+      return{kind:'day',number:index+1,...day,title,layout:'scrapbook'};
+    });
+    return[{kind:'cover',layout:'scrapbook',title:trip.title,country:trip.country,author:trip.author,photo:days.flatMap(day=>day.photos??[])[0]??null},{kind:'timeline',layout:'scrapbook',title:'Le fil du voyage',country:trip.country,days:scrapbookDays},...scrapbookDays,{kind:'end',layout:'scrapbook',title:`${trip.country} en chiffres`,stats:trip.stats??{},country:trip.country}];
+  }
   get readerPage(){return this.readerPages[this.readerIndex]??null}
   readerNext(){if(this.readerIndex<this.readerPages.length-1)this.readerIndex++}
   readerPrevious(){if(this.readerIndex>0)this.readerIndex--}
@@ -196,7 +209,7 @@ export class AppComponent implements OnInit {
       this.trips = trips.map(data => this.mapTrip(data)); this.go(traveler?.completed_at ? 'home' : 'questionnaire');
     } catch (error) { this.notify(this.errorMessage(error)); }
   }
-  private mapTrip(data: any): Trip { return { id: data.id, title: data.title, country: data.country, startDate: data.start_date, endDate: data.end_date, currency: data.currency, budget: data.planned_budget == null ? null : Number(data.planned_budget), visibility: data.visibility, days: (data.trip_days ?? []).sort((a: any, b: any) => a.day_number - b.day_number).map((day: any) => ({ id: day.id, date: day.day_date, label: `Jour ${day.day_number}`, note: day.notes ?? '' })) }; }
+  private mapTrip(data: any): Trip { return { id: data.id, title: data.title, country: data.country, startDate: data.start_date, endDate: data.end_date, currency: data.currency, budget: data.planned_budget == null ? null : Number(data.planned_budget), visibility: data.visibility, coverUrl:data.cover_url, days: (data.trip_days ?? []).sort((a: any, b: any) => a.day_number - b.day_number).map((day: any) => ({ id: day.id, date: day.day_date, label: `Jour ${day.day_number}`, note: day.notes ?? '' })) }; }
   private async requireUser() { const user = await this.supabase.currentUser(); if (!user) throw new Error('Ta session a expiré, reconnecte-toi.'); return user; }
   private toList(value: string) { return value.split(',').map(item => item.trim()).filter(Boolean); }
   private errorMessage(error: unknown) { return error instanceof Error ? error.message : 'Une erreur est survenue avec Supabase.'; }

@@ -72,9 +72,16 @@ export class SupabaseService {
 
   async trips(userId: string) {
     const { data, error } = await this.db.from('trips')
-      .select('*, trip_days(*)').eq('owner_id', userId).order('start_date', { ascending: true });
+      .select('*, trip_days(*, trip_media(id,storage_path,media_type,selected,created_at))').eq('owner_id', userId).order('start_date', { ascending: true });
     if (error) throw error;
-    return data ?? [];
+    return Promise.all((data ?? []).map(async (trip: any) => {
+      const photos=(trip.trip_days??[]).flatMap((day:any)=>day.trip_media??[]).filter((media:any)=>media.media_type==='photo'&&media.selected).sort((a:any,b:any)=>String(a.created_at).localeCompare(String(b.created_at)));
+      const coverPath=trip.cover_image||photos[0]?.storage_path;
+      if (!coverPath) return trip;
+      if (/^https?:\/\//.test(coverPath)) return {...trip,cover_url:coverPath};
+      const {data:signed}=await this.db.storage.from('trip-media').createSignedUrl(coverPath,3600);
+      return {...trip,cover_url:signed?.signedUrl};
+    }));
   }
 
   async createTrip(trip: Record<string, unknown>) {
@@ -124,6 +131,11 @@ export class SupabaseService {
 
   async updatePlaceCandidate(id: string, status: 'confirmed' | 'rejected') {
     const { error } = await this.db.from('place_candidates').update({ status }).eq('id', id);
+    if (error) throw error;
+  }
+
+  async setTripCover(tripId: string, storagePath: string) {
+    const { error } = await this.db.from('trips').update({ cover_image: storagePath }).eq('id', tripId);
     if (error) throw error;
   }
 
