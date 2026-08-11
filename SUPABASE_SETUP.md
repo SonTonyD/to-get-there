@@ -12,6 +12,7 @@ Ne jamais placer la clé OpenAI dans `environment.ts` ou dans Angular.
 npx supabase login
 npx supabase link --project-ref VOTRE_PROJECT_REF
 npx supabase secrets set OPENAI_API_KEY=sk-proj-VOTRE_CLE
+npx supabase secrets set GEOAPIFY_API_KEY=VOTRE_CLE_GEOAPIFY
 ```
 
 ## 3. Edge Functions
@@ -20,6 +21,7 @@ npx supabase secrets set OPENAI_API_KEY=sk-proj-VOTRE_CLE
 npx supabase functions deploy transcribe-day
 npx supabase functions deploy generate-journal
 npx supabase functions deploy publish-trip
+npx supabase functions deploy resolve-place
 ```
 
 Les fonctions contrôlent le JWT Supabase de l'utilisateur. `generate-journal` utilise `gpt-5.6-luna` avec un effort faible et deux traitements structurés. `transcribe-day` utilise `gpt-4o-mini-transcribe`.

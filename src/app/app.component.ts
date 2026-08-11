@@ -147,7 +147,13 @@ export class AppComponent implements OnInit {
     try { await this.supabase.saveJournal(this.selectedDay.id, { title: this.journal.title, summary: this.journal.summary, raw_text: this.journal.rawText, layout: this.journal.layout, cover_media_id: this.journal.coverMediaId || null, status: this.journal.status }, this.journal.events); this.selectedDay.note = this.journal.summary || this.journal.title; if (!silent) this.notify('Brouillon enregistré'); }
     catch (error) { if (!silent) this.notify(this.errorMessage(error)); }
   }
-  async confirmPlace(place: any, decision: boolean) { place.status = decision ? 'confirmed' : 'rejected'; try { if (!place.id) return; if (decision && this.selectedDay?.id) { const visit = await this.supabase.confirmPlaceCandidate(place, this.selectedDay.id); place.visitId = visit.id; } else await this.supabase.updatePlaceCandidate(place.id, 'rejected'); } catch (error) { place.status = 'pending'; this.notify(this.errorMessage(error)); } }
+  async confirmPlace(place: any, decision: boolean) {
+    if (!place.id) return;
+    if (!decision) { place.status='rejected'; try { await this.supabase.updatePlaceCandidate(place.id,'rejected'); } catch(error){place.status='pending';this.notify(this.errorMessage(error))} return; }
+    try { place.resolving=true; place.matches=await this.supabase.resolvePlace(place,this.selectedTrip?.country??''); if(!place.matches.length)this.notify('Aucun lieu correspondant trouvé. Essaie de préciser son nom ou sa ville.'); }
+    catch(error){this.notify(this.errorMessage(error))} finally {place.resolving=false}
+  }
+  async choosePlace(place:any,match:any){if(!this.selectedDay?.id)return;try{place.resolving=true;const result=await this.supabase.confirmPlaceCandidate(place,match,this.selectedDay.id);place.status='confirmed';place.visitId=result.visit.id;place.latitude=match.latitude;place.longitude=match.longitude;place.city=match.city;place.matches=[];this.notify('Lieu confirmé · il apparaîtra sur la carte ✦')}catch(error){this.notify(this.errorMessage(error))}finally{place.resolving=false}}
   async ratePlace(place: any, field: 'liked' | 'recommended', value: boolean) { place[field] = value; try { if (place.visitId) await this.supabase.ratePlaceVisit(place.visitId, { [field]: value }); } catch (error) { this.notify(this.errorMessage(error)); } }
   get photoMedia() { return this.journalMedia.filter(media => media.media_type === 'photo' && media.url); }
   get coverPhoto() { return this.photoMedia.find(media => media.id === this.journal.coverMediaId) ?? this.photoMedia[0] ?? null; }

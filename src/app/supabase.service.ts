@@ -139,14 +139,28 @@ export class SupabaseService {
     if (error) throw error;
   }
 
-  async confirmPlaceCandidate(candidate: any, dayId: string) {
-    const { data: place, error: placeError } = await this.db.from('places').insert({ name: candidate.name, city: candidate.city, category: candidate.category, provider: 'manual' }).select().single();
-    if (placeError) throw placeError;
-    const { data: visit, error: visitError } = await this.db.from('place_visits').insert({ trip_day_id: dayId, place_id: place.id, category: candidate.category }).select().single();
-    if (visitError) throw visitError;
-    const { error } = await this.db.from('place_candidates').update({ status: 'confirmed', resolved_place_id: place.id }).eq('id', candidate.id);
+  async resolvePlace(candidate: any, country: string) {
+    const { data, error } = await this.db.functions.invoke('resolve-place', { body: { name: candidate.name, city: candidate.city, country } });
     if (error) throw error;
-    return visit;
+    return data.results ?? [];
+  }
+
+  async confirmPlaceCandidate(candidate: any, match: any, dayId: string) {
+    let placeId = match.existingPlaceId;
+    if (!placeId) {
+      const { data: place, error: placeError } = await this.db.from('places').upsert({
+        provider: match.provider, provider_place_id: match.providerPlaceId, name: match.name,
+        city: match.city, country: match.country, latitude: match.latitude,
+        longitude: match.longitude, category: match.category || candidate.category
+      }, { onConflict: 'provider,provider_place_id' }).select().single();
+      if (placeError) throw placeError;
+      placeId = place.id;
+    }
+    const { data: visit, error: visitError } = await this.db.from('place_visits').upsert({ trip_day_id: dayId, place_id: placeId, category: candidate.category }, { onConflict: 'trip_day_id,place_id' }).select().single();
+    if (visitError) throw visitError;
+    const { error } = await this.db.from('place_candidates').update({ status: 'confirmed', resolved_place_id: placeId }).eq('id', candidate.id);
+    if (error) throw error;
+    return { visit, match };
   }
 
   async ratePlaceVisit(id: string, values: Record<string, unknown>) {
