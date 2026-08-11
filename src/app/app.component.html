@@ -3,7 +3,7 @@
   <div class="ambient ambient-two"></div>
   <div class="stars">✦　·　✧</div>
 
-  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire") {
+  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader") {
     <header class="topbar">
       <button class="brand" (click)="go('home')">
         <span class="brand-mark">✦</span><span>To Get There</span>
@@ -38,6 +38,32 @@
   }
 
   <main>
+    @if (screen === "reader" && readerPage) {
+      <section class="book-reader" [ngClass]="'reader-' + (readerPage.layout || readerTrip?.design || 'editorial')">
+        <header class="reader-bar"><button (click)="closeReader()">✕ Fermer</button><div><span>{{ readerTrip?.title }}</span><i [style.width.%]="((readerIndex + 1) / readerPages.length) * 100"></i></div><span>{{ readerIndex + 1 }} / {{ readerPages.length }}</span></header>
+        <div class="reader-stage">
+          <button class="reader-arrow previous" [disabled]="readerIndex === 0" (click)="readerPrevious()" aria-label="Page précédente">←</button>
+          <article class="reader-sheet" [class.cover-sheet]="readerPage.kind === 'cover'" [class.end-sheet]="readerPage.kind === 'end'">
+            @if (readerPage.kind === 'cover') {
+              @if (readerPage.photo) { <img class="reader-cover-image" [src]="readerPage.photo" alt="Couverture du voyage"> }
+              <div class="reader-cover-copy"><span>Carnet de voyage</span><h1>{{ readerPage.title }}</h1><p>{{ readerPage.country }}</p><small>Une histoire de {{ readerPage.author }}</small></div><div class="reader-cover-stamp">Bon<br>voyage</div>
+            } @else if (readerPage.kind === 'timeline') {
+              <div class="reader-timeline-page"><span class="timeline-kicker">Le voyage, d’un seul regard</span><h1>{{ readerPage.title }}</h1><p>{{ readerPage.country }} · le fil de nos souvenirs</p><div class="trip-thread">@for (day of readerPage.days; track day.date) { <article><b>{{ day.number | number:'2.0' }}</b><div><time>{{ formatDate(day.date) }}</time><h3>{{ day.title }}</h3><p>{{ day.summary }}</p></div></article> }</div><div class="timeline-flight">✈ 〰 〰 〰 ✦</div></div>
+            } @else if (readerPage.kind === 'day') {
+              <div class="reader-day-head"><span>Jour {{ readerPage.number | number:'2.0' }}</span><small>{{ formatDate(readerPage.date) }}</small><h1>{{ readerPage.title || 'Une journée à raconter' }}</h1></div>
+              @if (readerPage.photos?.length) { <div class="reader-photo-story"><img class="reader-main-photo" [src]="readerPage.photos[0]" alt="Souvenir de la journée">@for (photo of readerPage.photos.slice(1,3); track photo) { <img [src]="photo" alt="Souvenir de la journée"> }</div> }
+              <p class="reader-summary">{{ readerPage.summary }}</p>
+              <div class="reader-events">@for (event of readerPage.events; track event.order || $index) { <section><time>{{ event.time ? event.time.slice(0,5) : '✦' }}</time><div><h3>{{ event.title }}</h3><p>{{ event.description }}</p>@if (event.place) { <small>⌖ {{ event.place }}</small> }</div></section> }</div>
+              <div class="reader-page-number">— {{ readerPage.number }} —</div>
+            } @else {
+              <div class="reader-end-copy"><span>Le voyage en quelques éclats</span><h1>{{ readerPage.title }}</h1><div class="reader-numbers"><div><b>{{ readerPage.stats.days || '—' }}</b><small>jours</small></div><div><b>{{ readerPage.stats.cities || '—' }}</b><small>villes</small></div><div><b>{{ readerPage.stats.places || '—' }}</b><small>lieux</small></div><div><b>{{ readerPage.stats.photos || '—' }}</b><small>photos</small></div></div><p>Les plus beaux voyages continuent longtemps après le retour.</p><i>✦</i></div>
+            }
+          </article>
+          <button class="reader-arrow next" [disabled]="readerIndex === readerPages.length - 1" (click)="readerNext()" aria-label="Page suivante">→</button>
+        </div>
+        <nav class="reader-mobile-nav"><button [disabled]="readerIndex === 0" (click)="readerPrevious()">← Précédent</button><button [disabled]="readerIndex === readerPages.length - 1" (click)="readerNext()">Suivant →</button></nav>
+      </section>
+    }
     @if (screen === "splash") {
       <section class="splash page">
         <div class="splash-copy">
@@ -416,6 +442,7 @@
                 : "✦ Voyage public"
             }}</span>
             <h2>{{ selectedTrip.title }}</h2>
+            <button class="hero-read-button" (click)="openOwnerReader()">◉ Lire le carnet</button>
             <p>
               📍 {{ selectedTrip.country }}　·　{{
                 formatDate(selectedTrip.startDate)
@@ -777,7 +804,7 @@
                     }}</span
                   ><span class="doodle">✦ 〰 ✈</span>
                 </div>
-                @if (coverPhoto && journal.layout === "editorial") {
+                @if (coverPhoto) {
                   <img
                     class="journal-cover"
                     [src]="coverPhoto.url"
@@ -1053,6 +1080,7 @@
             }}
             · {{ selectedPublicTrip.stats.days }} jours
           </p>
+          <button class="hero-read-button public" (click)="openPublicReader()">Ouvrir le carnet page par page →</button>
         </div>
         <div class="public-stats">
           <div>
@@ -1195,7 +1223,7 @@
     }
   </main>
 
-  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire") {
+  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader") {
     <footer>
       <span class="brand">✦ To Get There</span>
       <p>Voyage doucement, rêve grand.</p>

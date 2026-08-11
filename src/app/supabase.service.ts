@@ -185,4 +185,18 @@ export class SupabaseService {
   async finishTrip(tripId: string) { const { data, error } = await this.db.rpc('finish_trip', { target_trip: tripId }); if (error) throw error; return data; }
   async publishTrip(tripId: string, settings: Record<string, unknown>) { const { data, error } = await this.db.functions.invoke('publish-trip', { body: { tripId, settings } }); if (error) throw error; return data.slug as string; }
   async explorePublicTrips() { const { data, error } = await this.db.from('trip_publications').select('slug,snapshot,published_at').order('published_at', { ascending: false }); if (error) throw error; return data ?? []; }
+
+  async tripReader(tripId: string) {
+    const { data, error } = await this.db.from('trip_days')
+      .select('id,day_date,day_number,notes,day_journals(*,journal_events(*)),trip_media(*)')
+      .eq('trip_id', tripId).order('day_number');
+    if (error) throw error;
+    return Promise.all((data ?? []).map(async (day: any) => ({
+      ...day,
+      trip_media: await Promise.all((day.trip_media ?? []).filter((media: any) => media.media_type === 'photo' && media.selected).map(async (media: any) => {
+        const { data: signed } = await this.db.storage.from('trip-media').createSignedUrl(media.storage_path, 3600);
+        return { ...media, url: signed?.signedUrl };
+      }))
+    })));
+  }
 }
