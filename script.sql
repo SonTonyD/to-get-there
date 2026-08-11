@@ -406,3 +406,7 @@ insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values('published-trip-media','published-trip-media',true,52428800,array['image/jpeg','image/png','image/webp'])
 on conflict(id) do nothing;
 create policy published_media_public_read on storage.objects for select using(bucket_id='published-trip-media');
+
+-- Amélioration esthétique des carnets : un contenu, plusieurs moteurs de rendu.
+alter table public.day_journals drop constraint if exists day_journals_layout_check;
+alter table public.day_journals add constraint day_journals_layout_check check(layout in ('scrapbook','editorial','timeline'));

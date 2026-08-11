@@ -183,6 +183,6 @@ export class SupabaseService {
   async placeVisits(tripId: string) { const { data, error } = await this.db.from('place_visits').select('*, places(*), trip_days!inner(id,day_date,trip_id)').eq('trip_days.trip_id', tripId); if (error) throw error; return data ?? []; }
   async tripStatistics(tripId: string) { const { data, error } = await this.db.rpc('trip_statistics', { target_trip: tripId }); if (error) throw error; return data; }
   async finishTrip(tripId: string) { const { data, error } = await this.db.rpc('finish_trip', { target_trip: tripId }); if (error) throw error; return data; }
-  async publishTrip(tripId: string, settings: Record<string, boolean>) { const { data, error } = await this.db.functions.invoke('publish-trip', { body: { tripId, settings } }); if (error) throw error; return data.slug as string; }
+  async publishTrip(tripId: string, settings: Record<string, unknown>) { const { data, error } = await this.db.functions.invoke('publish-trip', { body: { tripId, settings } }); if (error) throw error; return data.slug as string; }
   async explorePublicTrips() { const { data, error } = await this.db.from('trip_publications').select('slug,snapshot,published_at').order('published_at', { ascending: false }); if (error) throw error; return data ?? []; }
 }
