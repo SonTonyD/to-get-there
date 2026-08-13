@@ -43,8 +43,9 @@ export class AppComponent implements OnInit, OnDestroy {
   expense = { label: '', amount: null as number | null, convertedAmount: null as number | null, currency: 'EUR', category: 'Restauration' };
   expenses: any[] = []; placeVisits: any[] = []; tripStats: any = null;
   publication = { photos: true, story: true, recommendations: true, budget: false, design: 'scrapbook' };
-  exploreSearch = ''; publicTrips: any[] = []; selectedPublicTrip: any = null;
+  exploreSearch = ''; exploreDuration='all';exploreSeason='all';exploreType='all'; publicTrips: any[] = []; selectedPublicTrip: any = null;
   readerPages: any[] = []; readerIndex = 0; readerOrigin: Screen = 'dashboard'; readerTrip: any = null;
+  readerTocOpen=false;readerFullscreen=false;readerLightbox='';private readerTouchX=0;
   communityProfile:any=null; relationship:any={}; commentsList:any[]=[]; commentDraft=''; inspirationsList:any[]=[];
   publicLikeBusy=false;
   inboxList:any[]=[]; activeConversationId=''; messagesList:any[]=[]; messageDraft=''; friendRequests:any[]=[];
@@ -180,8 +181,14 @@ export class AppComponent implements OnInit, OnDestroy {
   categoryTotal(category:string){return this.expenses.filter(e=>e.category===category).reduce((sum,e)=>sum+Number(e.converted_amount??e.amount),0)}
   async completeTrip(){if(!this.selectedTrip)return;try{this.tripStats=await this.supabase.finishTrip(this.selectedTrip.id);this.notify('Voyage terminé · ta page en chiffres est prête !')}catch(error){this.notify(this.errorMessage(error))}}
   async publishTrip(){if(!this.selectedTrip)return;try{const slug=await this.supabase.publishTrip(this.selectedTrip.id,this.publication);this.notify(`Voyage publié : ${slug}`)}catch(error){this.notify(this.errorMessage(error))}}
-  async openExplore(){this.go('explore');try{this.publicTrips=await this.supabase.explorePublicTrips()}catch(error){this.notify(this.errorMessage(error))}}
-  get filteredPublicTrips(){const q=this.exploreSearch.trim().toLowerCase();return this.publicTrips.filter(item=>!q||item.snapshot?.trip?.country?.toLowerCase().includes(q)||item.snapshot?.trip?.title?.toLowerCase().includes(q)||item.snapshot?.places?.some((p:any)=>p.city?.toLowerCase().includes(q)))}
+  async openExplore(){this.go('explore');try{this.publicTrips=await this.supabase.explorePublicTrips();await Promise.all(this.publicTrips.map(async item=>{const id=item.snapshot?.trip?.id;if(id)Object.assign(item.snapshot,await this.supabase.tripEngagement(id))}))}catch(error){this.notify(this.errorMessage(error))}}
+  tripDuration(item:any){return Number(item.snapshot?.stats?.days??item.snapshot?.days?.length??0)}
+  tripSeason(item:any){const month=new Date(item.snapshot?.trip?.startDate??'').getMonth()+1;return[12,1,2].includes(month)?'winter':[3,4,5].includes(month)?'spring':[6,7,8].includes(month)?'summer':'autumn'}
+  tripType(item:any){const cities=new Set((item.snapshot?.places??[]).map((place:any)=>place.city).filter(Boolean)).size;return cities>=3?'roadtrip':this.tripDuration(item)<=5?'city':'slow'}
+  tripCities(item:any){return[...new Set((item.snapshot?.places??[]).map((place:any)=>place.city).filter(Boolean))].slice(0,3) as string[]}
+  recommendationCount(item:any){return(item.snapshot?.places??[]).filter((place:any)=>place.recommended).length}
+  get filteredPublicTrips(){const q=this.exploreSearch.trim().toLowerCase();return this.publicTrips.filter(item=>{const duration=this.tripDuration(item);return(!q||item.snapshot?.trip?.country?.toLowerCase().includes(q)||item.snapshot?.trip?.title?.toLowerCase().includes(q)||item.snapshot?.places?.some((p:any)=>p.city?.toLowerCase().includes(q)))&&(this.exploreDuration==='all'||this.exploreDuration==='short'&&duration<=5||this.exploreDuration==='medium'&&duration>=6&&duration<=14||this.exploreDuration==='long'&&duration>=15)&&(this.exploreSeason==='all'||this.tripSeason(item)===this.exploreSeason)&&(this.exploreType==='all'||this.tripType(item)===this.exploreType)})}
+  async toggleExploreSave(event:Event,item:any){event.stopPropagation();const tripId=item.snapshot?.trip?.id;if(!tripId)return;try{await this.supabase.toggleSaveTrip(tripId,!!item.snapshot.saved);item.snapshot.saved=!item.snapshot.saved;this.notify(item.snapshot.saved?'Voyage enregistré':'Voyage retiré des inspirations')}catch(error){this.notify(this.errorMessage(error))}}
   get publicAuthorTrips(){const id=this.selectedPublicTrip?.author?.id;return this.publicTrips.filter(item=>item.snapshot?.author?.id===id)}
   get publicAuthorCountries(){return [...new Set(this.publicAuthorTrips.map(item=>item.snapshot.trip.country))]}
   exploreCountry(country:string){this.exploreSearch=country;this.openExplore()}
@@ -214,8 +221,8 @@ export class AppComponent implements OnInit, OnDestroy {
   async blockProfile(){if(!this.communityProfile)return;if(!confirm('Bloquer cet utilisateur ?'))return;try{await this.supabase.blockUser(this.communityProfile.profile.id);this.relationship.blocked=true;this.notify('Utilisateur bloqué')}catch(error){this.notify(this.errorMessage(error))}}
   async reportTarget(type:'user'|'comment'|'message',id:string){const reason=prompt('Pourquoi souhaitez-vous signaler ce contenu ?');if(!reason)return;try{await this.supabase.report(type,id,reason);this.notify('Signalement transmis')}catch(error){this.notify(this.errorMessage(error))}}
   async updateMessagePermission(){try{await this.supabase.saveMessagePermission(this.messagePermission);this.notify('Préférence enregistrée')}catch(error){this.notify(this.errorMessage(error))}}
-  async openOwnerReader() { if (!this.selectedTrip) return; try { const days=await this.supabase.tripReader(this.selectedTrip.id); this.readerTrip={ title:this.selectedTrip.title,country:this.selectedTrip.country,startDate:this.selectedTrip.startDate,endDate:this.selectedTrip.endDate,author:this.user.firstname,design:'scrapbook',stats:this.tripStats }; this.readerPages=this.buildReaderPages(days.map((day:any)=>{const journal=day.day_journals?.[0]??day.day_journals??{};return{date:day.day_date,title:journal.title||day.label||`Jour ${day.day_number}`,summary:journal.summary||day.notes||'',layout:'scrapbook',events:(journal.journal_events??[]).sort((a:any,b:any)=>a.event_order-b.event_order).map((event:any)=>({time:event.event_time,title:event.title,description:event.description,place:event.place_text})),photos:(day.trip_media??[]).map((media:any)=>media.url).filter(Boolean)}}),this.readerTrip); this.readerOrigin='dashboard';this.readerIndex=0;this.go('reader'); } catch(error){this.notify(this.errorMessage(error))} }
-  openPublicReader(){if(!this.selectedPublicTrip)return;const sourceDays=this.selectedPublicTrip.days??[];const allPhotos=(this.selectedPublicTrip.photos??[]).filter(Boolean);const legacyBuckets=sourceDays.map((_:any,index:number)=>allPhotos.filter((_:string,photoIndex:number)=>photoIndex%Math.max(sourceDays.length,1)===index));const days=sourceDays.map((day:any,index:number)=>({...day,layout:'scrapbook',photos:(this.selectedPublicTrip.photoDays?.[day.date]??legacyBuckets[index]??[]).filter(Boolean),events:day.events??[]}));this.readerTrip={...this.selectedPublicTrip.trip,author:this.selectedPublicTrip.author.firstname||this.selectedPublicTrip.author.username,design:'scrapbook',stats:this.selectedPublicTrip.stats};this.readerPages=this.buildReaderPages(days,this.readerTrip);this.readerOrigin='public-trip';this.readerIndex=0;this.go('reader')}
+  async openOwnerReader() { if (!this.selectedTrip) return; try { const days=await this.supabase.tripReader(this.selectedTrip.id); this.readerTrip={ id:this.selectedTrip.id,title:this.selectedTrip.title,country:this.selectedTrip.country,startDate:this.selectedTrip.startDate,endDate:this.selectedTrip.endDate,author:this.user.firstname,design:'scrapbook',stats:this.tripStats }; this.readerPages=this.buildReaderPages(days.map((day:any)=>{const journal=day.day_journals?.[0]??day.day_journals??{};return{date:day.day_date,title:journal.title||day.label||`Jour ${day.day_number}`,summary:journal.summary||day.notes||'',layout:'scrapbook',events:(journal.journal_events??[]).sort((a:any,b:any)=>a.event_order-b.event_order).map((event:any)=>({time:event.event_time,title:event.title,description:event.description,place:event.place_text})),photos:(day.trip_media??[]).map((media:any)=>media.url).filter(Boolean)}}),this.readerTrip); this.readerOrigin='dashboard';this.restoreReaderPosition();this.go('reader'); } catch(error){this.notify(this.errorMessage(error))} }
+  openPublicReader(){if(!this.selectedPublicTrip)return;const sourceDays=this.selectedPublicTrip.days??[];const allPhotos=(this.selectedPublicTrip.photos??[]).filter(Boolean);const legacyBuckets=sourceDays.map((_:any,index:number)=>allPhotos.filter((_:string,photoIndex:number)=>photoIndex%Math.max(sourceDays.length,1)===index));const days=sourceDays.map((day:any,index:number)=>({...day,layout:'scrapbook',photos:(this.selectedPublicTrip.photoDays?.[day.date]??legacyBuckets[index]??[]).filter(Boolean),events:day.events??[]}));this.readerTrip={...this.selectedPublicTrip.trip,author:this.selectedPublicTrip.author.firstname||this.selectedPublicTrip.author.username,design:'scrapbook',stats:this.selectedPublicTrip.stats};this.readerPages=this.buildReaderPages(days,this.readerTrip);this.readerOrigin='public-trip';this.restoreReaderPosition();this.go('reader')}
   private buildReaderPages(days:any[],trip:any){
     const usedTitles=new Set<string>();
     const tripTitle=String(trip.title??'').trim().toLocaleLowerCase('fr');
@@ -226,13 +233,20 @@ export class AppComponent implements OnInit, OnDestroy {
       const eventTitle=String(day.events?.[0]?.title??'').trim();
       const title=repeated?(eventTitle||`Jour ${index+1}`):savedTitle;
       usedTitles.add(title.toLocaleLowerCase('fr'));
-      return{kind:'day',number:index+1,...day,title,layout:'scrapbook'};
+      return{kind:'day',number:index+1,...day,title,layout:'scrapbook',composition:['polaroid','postcard','ticket','contact'][index%4]};
     });
     return[{kind:'cover',layout:'scrapbook',title:trip.title,country:trip.country,author:trip.author,photo:days.flatMap(day=>day.photos??[])[0]??null},{kind:'timeline',layout:'scrapbook',title:'Le fil du voyage',country:trip.country,days:scrapbookDays},...scrapbookDays,{kind:'end',layout:'scrapbook',title:`${trip.country} en chiffres`,stats:trip.stats??{},country:trip.country}];
   }
   get readerPage(){return this.readerPages[this.readerIndex]??null}
-  readerNext(){if(this.readerIndex<this.readerPages.length-1)this.readerIndex++}
-  readerPrevious(){if(this.readerIndex>0)this.readerIndex--}
+  private readerStorageKey(){return`reader-position-${this.readerTrip?.id??this.readerTrip?.title??'trip'}`}
+  private restoreReaderPosition(){const saved=Number(localStorage.getItem(this.readerStorageKey())??0);this.readerIndex=Number.isFinite(saved)&&saved>=0&&saved<this.readerPages.length?saved:0}
+  goToReaderPage(index:number){if(index<0||index>=this.readerPages.length)return;this.readerIndex=index;this.readerTocOpen=false;localStorage.setItem(this.readerStorageKey(),String(index))}
+  readerNext(){this.goToReaderPage(this.readerIndex+1)}
+  readerPrevious(){this.goToReaderPage(this.readerIndex-1)}
+  readerTouchStart(event:TouchEvent){this.readerTouchX=event.changedTouches[0]?.clientX??0}
+  readerTouchEnd(event:TouchEvent){const delta=(event.changedTouches[0]?.clientX??0)-this.readerTouchX;if(Math.abs(delta)>55)(delta<0?this.readerNext():this.readerPrevious())}
+  async toggleReaderFullscreen(){try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();this.readerFullscreen=!!document.fullscreenElement}catch{this.notify('Le plein écran n’est pas disponible sur cet appareil.')}}
+  async shareReaderDay(){const page=this.readerPage;if(page?.kind!=='day')return;const text=`${page.title} · Jour ${page.number} de ${this.readerTrip?.title}`;try{if(navigator.share)await navigator.share({title:page.title,text,url:location.href});else{await navigator.clipboard.writeText(`${text} ${location.href}`);this.notify('Lien de la journée copié')}}catch{}}
   closeReader(){this.go(this.readerOrigin)}
   @HostListener('window:keydown',['$event']) onReaderKey(event:KeyboardEvent){if(this.screen!=='reader')return;if(event.key==='ArrowRight'||event.key===' ')this.readerNext();if(event.key==='ArrowLeft')this.readerPrevious();if(event.key==='Escape')this.closeReader()}
   async deleteTrip(trip: Trip) {

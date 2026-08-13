@@ -51,8 +51,9 @@
 
   <main>
     @if (screen === "reader" && readerPage) {
-      <section class="book-reader" [ngClass]="'reader-' + (readerPage.layout || readerTrip?.design || 'editorial')">
-        <header class="reader-bar"><button (click)="closeReader()">✕ Fermer</button><div><span>{{ readerTrip?.title }}</span><i [style.width.%]="((readerIndex + 1) / readerPages.length) * 100"></i></div><span>{{ readerIndex + 1 }} / {{ readerPages.length }}</span></header>
+      <section class="book-reader" [ngClass]="['reader-' + (readerPage.layout || readerTrip?.design || 'editorial'),'composition-' + (readerPage.composition || 'classic')]" (touchstart)="readerTouchStart($event)" (touchend)="readerTouchEnd($event)">
+        <header class="reader-bar"><button (click)="closeReader()">✕ Fermer</button><div><span>{{ readerTrip?.title }}</span><i [style.width.%]="((readerIndex + 1) / readerPages.length) * 100"></i></div><div class="reader-tools"><button (click)="readerTocOpen = !readerTocOpen" aria-label="Sommaire">☰</button><button (click)="toggleReaderFullscreen()" aria-label="Plein écran">⛶</button><span>{{ readerIndex + 1 }} / {{ readerPages.length }}</span></div></header>
+        @if (readerTocOpen) { <aside class="reader-toc"><header><span>Sommaire</span><button (click)="readerTocOpen=false">×</button></header>@for (page of readerPages; track $index) { <button [class.active]="$index === readerIndex" (click)="goToReaderPage($index)"><b>{{ page.kind === 'cover' ? '✦' : page.kind === 'timeline' ? '⌁' : page.kind === 'end' ? '∞' : page.number }}</b><span>{{ page.kind === 'cover' ? 'Couverture' : page.kind === 'timeline' ? 'Le voyage en un regard' : page.title }}</span></button> }</aside> }
         <div class="reader-stage">
           <button class="reader-arrow previous" [disabled]="readerIndex === 0" (click)="readerPrevious()" aria-label="Page précédente">←</button>
           <article class="reader-sheet" [class.cover-sheet]="readerPage.kind === 'cover'" [class.end-sheet]="readerPage.kind === 'end'">
@@ -63,17 +64,20 @@
               <div class="reader-timeline-page"><span class="timeline-kicker">Le voyage, d’un seul regard</span><h1>{{ readerPage.title }}</h1><p>{{ readerPage.country }} · le fil de nos souvenirs</p><div class="trip-thread">@for (day of readerPage.days; track day.date) { <article><b>{{ day.number | number:'2.0' }}</b><div><time>{{ formatDate(day.date) }}</time><h3>{{ day.title }}</h3><p>{{ day.summary }}</p></div></article> }</div><div class="timeline-flight">✈ 〰 〰 〰 ✦</div></div>
             } @else if (readerPage.kind === 'day') {
               <div class="reader-day-head"><span>Jour {{ readerPage.number | number:'2.0' }}</span><small>{{ formatDate(readerPage.date) }}</small><h1>{{ readerPage.title || 'Une journée à raconter' }}</h1></div>
-              @if (readerPage.photos?.length) { <div class="reader-photo-story" [class.single-photo]="readerPage.photos.length === 1" [class.two-photos]="readerPage.photos.length === 2"><img class="reader-main-photo" [src]="readerPage.photos[0]" alt="Souvenir de la journée">@for (photo of readerPage.photos.slice(1,3); track $index) { <img [src]="photo" alt="Souvenir de la journée"> }</div> } @else { <div class="reader-no-photo"><span>✦</span><div>Une journée vécue<br><b>au-delà de l’objectif</b></div><small>{{ readerPage.date | date:'dd · MM · yyyy' }}</small></div> }
+              @if (readerPage.photos?.length) { <div class="reader-photo-story" [class.single-photo]="readerPage.photos.length === 1" [class.two-photos]="readerPage.photos.length === 2"><figure><img class="reader-main-photo" [src]="readerPage.photos[0]" alt="Souvenir de la journée" (click)="readerLightbox=readerPage.photos[0]"><figcaption>{{ readerPage.events?.[0]?.place || 'Souvenir du jour' }}</figcaption></figure>@for (photo of readerPage.photos.slice(1,3); track $index) { <figure><img [src]="photo" alt="Souvenir de la journée" (click)="readerLightbox=photo"><figcaption>{{ readerPage.events?.[$index + 1]?.place || '' }}</figcaption></figure> }</div> } @else { <div class="reader-no-photo"><span>✦</span><div>Une journée vécue<br><b>au-delà de l’objectif</b></div><small>{{ readerPage.date | date:'dd · MM · yyyy' }}</small></div> }
               <p class="reader-summary">{{ readerPage.summary }}</p>
               <div class="reader-events">@for (event of readerPage.events; track event.order || $index) { <section><time>{{ event.time ? event.time.slice(0,5) : '✦' }}</time><div><h3>{{ event.title }}</h3><p>{{ event.description }}</p>@if (event.place) { <small>⌖ {{ event.place }}</small> }</div></section> }</div>
               <div class="reader-page-number">— {{ readerPage.number }} —</div>
+              <button class="reader-share-day" (click)="shareReaderDay()">↗ Partager cette journée</button>
             } @else {
               <div class="reader-end-copy"><span>Le voyage en quelques éclats</span><h1>{{ readerPage.title }}</h1><div class="reader-numbers"><div><b>{{ readerPage.stats.days || '—' }}</b><small>jours</small></div><div><b>{{ readerPage.stats.cities || '—' }}</b><small>villes</small></div><div><b>{{ readerPage.stats.places || '—' }}</b><small>lieux</small></div><div><b>{{ readerPage.stats.photos || '—' }}</b><small>photos</small></div></div><p>Les plus beaux voyages continuent longtemps après le retour.</p><i>✦</i></div>
             }
           </article>
           <button class="reader-arrow next" [disabled]="readerIndex === readerPages.length - 1" (click)="readerNext()" aria-label="Page suivante">→</button>
         </div>
+        <div class="reader-page-dots">@for (page of readerPages; track $index) { <button [class.active]="$index === readerIndex" (click)="goToReaderPage($index)" [attr.aria-label]="'Page ' + ($index + 1)"></button> }</div>
         <nav class="reader-mobile-nav"><button [disabled]="readerIndex === 0" (click)="readerPrevious()">← Précédent</button><button [disabled]="readerIndex === readerPages.length - 1" (click)="readerNext()">Suivant →</button></nav>
+        @if (readerLightbox) { <div class="reader-lightbox" (click)="readerLightbox='' "><button aria-label="Fermer">×</button><img [src]="readerLightbox" alt="Photo agrandie"></div> }
       </section>
     }
     @if (screen === "splash") {
@@ -1022,6 +1026,11 @@
               placeholder="Rechercher un pays ou une ville"
             />
           </div>
+          <div class="explore-filters">
+            <label>Durée<select [(ngModel)]="exploreDuration"><option value="all">Toutes</option><option value="short">1 à 5 jours</option><option value="medium">6 à 14 jours</option><option value="long">15 jours et plus</option></select></label>
+            <label>Saison<select [(ngModel)]="exploreSeason"><option value="all">Toutes</option><option value="spring">Printemps</option><option value="summer">Été</option><option value="autumn">Automne</option><option value="winter">Hiver</option></select></label>
+            <label>Type<select [(ngModel)]="exploreType"><option value="all">Tous</option><option value="city">City break</option><option value="roadtrip">Itinérant</option><option value="slow">Voyage lent</option></select></label>
+          </div>
         </div>
         <div class="section-head">
           <div>
@@ -1050,27 +1059,12 @@
                 <span class="cover-country">{{
                   item.snapshot.trip.country
                 }}</span
-                ><b>{{ item.snapshot.trip.title }}</b
-                ><i>✦</i>
+                ><button class="explore-save" [class.saved]="item.snapshot.saved" (click)="toggleExploreSave($event,item)" aria-label="Enregistrer le voyage">{{ item.snapshot.saved ? '♥' : '♡' }}</button><div class="explore-cover-title"><small>{{ tripDuration(item) }} jours</small><b>{{ item.snapshot.trip.title }}</b></div><i>✦</i>
               </div>
-              <div>
-                <span
-                  >{{ item.snapshot.stats.days }} jours · Carnet n°{{
-                    $index + 1 | number: "2.0"
-                  }}</span
-                >
-                <h3>{{ item.snapshot.trip.title }}</h3>
-                <p>
-                  Par
-                  {{
-                    item.snapshot.author.firstname ||
-                      item.snapshot.author.username
-                  }}
-                </p>
-                <small
-                  >{{ item.snapshot.stats.places }} lieux ·
-                  {{ item.snapshot.stats.photos }} photos</small
-                >
+              <div class="explore-card-body">
+                <div class="explore-author"><div class="mini-community-avatar">{{ (item.snapshot.author.firstname || item.snapshot.author.username || 'V').charAt(0) }}</div><p><b>{{ item.snapshot.author.firstname || item.snapshot.author.username }}</b><small>&#64;{{ item.snapshot.author.username }}</small></p></div>
+                @if (tripCities(item).length) { <div class="explore-route">@for (city of tripCities(item); track city) { <span>{{ city }}</span> }</div> }
+                <div class="explore-metrics"><span><b>{{ item.snapshot.stats.days }}</b> jours</span><span><b>{{ item.snapshot.stats.photos }}</b> photos</span><span><b>{{ recommendationCount(item) }}</b> recommandations</span><span class="like-metric">♥ {{ item.snapshot.likes || 0 }}</span></div>
               </div>
             </article>
           } @empty {
@@ -1107,8 +1101,8 @@
             }}
             · {{ selectedPublicTrip.stats.days }} jours
           </p>
-          <button class="hero-read-button public" (click)="openPublicReader()">Ouvrir le carnet page par page →</button>
-          <div class="public-social-actions"><button [disabled]="publicLikeBusy" (click)="togglePublicLike()">{{ selectedPublicTrip.liked ? '♥' : '♡' }} {{ selectedPublicTrip.likes || 0 }}</button><button (click)="toggleSave()">{{ selectedPublicTrip.saved ? '✓ Enregistré' : '🔖 Enregistrer' }}</button><button (click)="openCommunityProfile(selectedPublicTrip.author.id)">Profil voyageur</button><button (click)="startChat()">✉ Message</button></div>
+          <div class="public-hero-actions"><button class="hero-read-button public" (click)="openPublicReader()">Lire le carnet →</button><button class="hero-save-button" (click)="toggleSave()">{{ selectedPublicTrip.saved ? '✓ Enregistré' : '♡ Enregistrer' }}</button></div>
+          <div class="public-social-actions"><button [disabled]="publicLikeBusy" (click)="togglePublicLike()">{{ selectedPublicTrip.liked ? '♥' : '♡' }} {{ selectedPublicTrip.likes || 0 }}</button><button (click)="openCommunityProfile(selectedPublicTrip.author.id)">Profil voyageur</button><button (click)="startChat()">✉ Message</button></div>
         </div>
         <div class="public-stats">
           <div>
