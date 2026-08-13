@@ -6,6 +6,8 @@ import * as L from 'leaflet';
 
 type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'journal' | 'explore' | 'public-trip' | 'public-profile' | 'inspirations' | 'inbox' | 'conversation' | 'community-settings' | 'reader' | 'profile';
 type AuthMode = 'login' | 'signup' | 'forgot';
+type TripTab = 'journal' | 'map' | 'budget' | 'settings';
+type JournalStep = 1 | 2 | 3 | 4;
 
 interface TripDay { id?: string; date: string; label: string; note: string; }
 interface Trip {
@@ -48,6 +50,7 @@ export class AppComponent implements OnInit, OnDestroy {
   inboxList:any[]=[]; activeConversationId=''; messagesList:any[]=[]; messageDraft=''; friendRequests:any[]=[];
   activeConversationPeer:any=null; unreadMessageCount=0; pendingFriendCount=0;
   messagePermission:'everyone'|'following'|'friends'|'nobody'='everyone';
+  tripTab:TripTab='journal'; journalStep:JournalStep=1;
   private map?: L.Map;
   private recorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
@@ -112,12 +115,14 @@ export class AppComponent implements OnInit, OnDestroy {
       const trip = this.mapTrip(data); this.trips.unshift(trip); this.openTrip(trip); this.notify('Voyage créé, l’aventure commence !');
     } catch (error) { this.notify(this.errorMessage(error)); }
   }
-  openTrip(trip: Trip) { this.selectedTrip = trip; this.go('dashboard'); this.loadTripInsights(); }
+  openTrip(trip: Trip) { this.selectedTrip = trip; this.tripTab='journal';this.go('dashboard'); this.loadTripInsights(); }
+  setTripTab(tab:TripTab){this.tripTab=tab;if(tab==='map')setTimeout(()=>this.renderMap(),0)}
+  setJournalStep(step:JournalStep){if(step===4&&!this.journal.title&&!this.journal.events.length){this.notify('Génère d’abord ta journée.');return}this.journalStep=step;window.scrollTo({top:0,behavior:'smooth'})}
   async loadTripInsights() { if (!this.selectedTrip) return; try { [this.expenses,this.placeVisits,this.tripStats] = await Promise.all([this.supabase.expenses(this.selectedTrip.id),this.supabase.placeVisits(this.selectedTrip.id),this.supabase.tripStatistics(this.selectedTrip.id)]); setTimeout(()=>this.renderMap(),0); } catch (error) { this.notify(this.errorMessage(error)); } }
   private renderMap() { const element=document.getElementById('trip-map'); if (!element) return; this.map?.remove(); const points=this.placeVisits.filter(v=>v.places?.latitude!=null&&v.places?.longitude!=null); this.map=L.map(element).setView(points.length?[points[0].places.latitude,points[0].places.longitude]:[16.05,108.2],points.length?7:5); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(this.map); const bounds:L.LatLngExpression[]=[]; points.forEach(visit=>{const point:[number,number]=[visit.places.latitude,visit.places.longitude];bounds.push(point);const marker=L.circleMarker(point,{radius:9,color:'#76529a',fillColor:'#c8b6ff',fillOpacity:.9}).addTo(this.map!).bindTooltip(`${visit.places.name} · ${visit.places.city??''}`);marker.on('click',()=>{const day=this.selectedTrip?.days.find(item=>item.id===visit.trip_day_id);if(day)this.openJournal(day)});});if(bounds.length>1)this.map.fitBounds(L.latLngBounds(bounds),{padding:[30,30]}); }
   async openJournal(day: TripDay) {
     if (!day.id) { this.notify('Cette journée doit être synchronisée avec Supabase.'); return; }
-    this.selectedDay = day; this.expense.currency = this.selectedTrip?.currency ?? 'EUR'; this.journalEditing=false; this.journal = { title: '', summary: '', rawText: '', layout: 'scrapbook', coverMediaId: '', status: 'draft', events: [], places: [] }; this.journalMedia = []; this.go('journal');
+    this.selectedDay = day; this.expense.currency = this.selectedTrip?.currency ?? 'EUR'; this.journalEditing=false;this.journalStep=1; this.journal = { title: '', summary: '', rawText: '', layout: 'scrapbook', coverMediaId: '', status: 'draft', events: [], places: [] }; this.journalMedia = []; this.go('journal');
     try {
       const [saved, media] = await Promise.all([this.supabase.journal(day.id), this.supabase.media(day.id)]);
       this.journalMedia = media;
@@ -147,7 +152,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   async generateJournal() {
     if (!this.selectedDay?.id || !this.journal.rawText.trim()) { this.notify('Raconte ou écris d’abord ta journée.'); return; }
-    try { this.generating = true; const result = await this.supabase.generateJournal(this.selectedDay.id, this.journal.rawText, this.journalMedia.map(m => ({ id: m.id, type: m.media_type, name: m.original_name }))); this.journal.title = result.title; this.journal.summary = result.summary; this.journal.events = result.events ?? []; this.journal.places = result.placeCandidates ?? []; this.journal.layout='scrapbook'; this.journalEditing=false; await this.saveJournal(false); this.notify('Ta journée de carnet est prête ✨'); }
+    try { this.generating = true; const result = await this.supabase.generateJournal(this.selectedDay.id, this.journal.rawText, this.journalMedia.map(m => ({ id: m.id, type: m.media_type, name: m.original_name }))); this.journal.title = result.title; this.journal.summary = result.summary; this.journal.events = result.events ?? []; this.journal.places = result.placeCandidates ?? []; this.journal.layout='scrapbook'; this.journalEditing=false; await this.saveJournal(false);this.journalStep=3;window.scrollTo({top:0,behavior:'smooth'}); this.notify('Ta journée est prête · vérifie maintenant les lieux ✨'); }
     catch (error) { this.notify(this.errorMessage(error)); } finally { this.generating = false; }
   }
   scheduleAutosave() { clearTimeout(this.autosaveTimer); this.autosaveTimer = setTimeout(() => this.saveJournal(true), 900); }

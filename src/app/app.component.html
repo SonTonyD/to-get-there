@@ -39,6 +39,16 @@
     </header>
   }
 
+  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader" && screen !== "conversation") {
+    <nav class="mobile-bottom-nav" aria-label="Navigation principale">
+      <button [class.active]="screen === 'home'" (click)="go('home')"><span>⌂</span><small>Accueil</small></button>
+      <button [class.active]="screen === 'trips' || screen === 'dashboard' || screen === 'journal'" (click)="go('trips')"><span>▣</span><small>Voyages</small></button>
+      <button class="mobile-create" (click)="go('new-trip')"><span>＋</span><small>Créer</small></button>
+      <button [class.active]="screen === 'explore' || screen === 'public-trip'" (click)="openExplore()"><span>⌕</span><small>Explorer</small></button>
+      <button [class.active]="screen === 'inbox'" (click)="openInbox()"><span>✉</span><small>Messages</small>@if (unreadMessageCount + pendingFriendCount > 0) { <i>{{ unreadMessageCount + pendingFriendCount > 9 ? '9+' : unreadMessageCount + pendingFriendCount }}</i> }</button>
+    </nav>
+  }
+
   <main>
     @if (screen === "reader" && readerPage) {
       <section class="book-reader" [ngClass]="'reader-' + (readerPage.layout || readerTrip?.design || 'editorial')">
@@ -460,7 +470,13 @@
             ><small>{{ selectedTrip.days.length }} jours d’évasion</small>
           </div>
         </div>
-        <div class="dashboard-grid">
+        <nav class="trip-tabs" aria-label="Sections du voyage">
+          <button [class.active]="tripTab === 'journal'" (click)="setTripTab('journal')"><span>✎</span> Journal</button>
+          <button [class.active]="tripTab === 'map'" (click)="setTripTab('map')"><span>⌖</span> Carte</button>
+          <button [class.active]="tripTab === 'budget'" (click)="setTripTab('budget')"><span>€</span> Budget</button>
+          <button [class.active]="tripTab === 'settings'" (click)="setTripTab('settings')"><span>•••</span> Plus</button>
+        </nav>
+        <div class="dashboard-grid" [hidden]="tripTab !== 'journal'">
           <div class="days">
             <div class="section-head">
               <div>
@@ -520,8 +536,8 @@
             </button>
           </aside>
         </div>
-        <div class="insights-grid">
-          <section class="paper-card budget-panel">
+        <div class="insights-grid" [class.single-insight]="tripTab === 'map' || tripTab === 'budget'" [hidden]="tripTab !== 'map' && tripTab !== 'budget'">
+          <section class="paper-card budget-panel" [hidden]="tripTab !== 'budget'">
             <div class="section-head">
               <div>
                 <span class="eyebrow">Budget du voyage</span>
@@ -591,7 +607,7 @@
               }
             </div>
           </section>
-          <section class="paper-card map-panel">
+          <section class="paper-card map-panel" [hidden]="tripTab !== 'map'">
             <div class="section-head">
               <div>
                 <span class="eyebrow">Carte des souvenirs</span>
@@ -607,7 +623,7 @@
             }
           </section>
         </div>
-        <section class="paper-card publish-panel">
+        <section class="paper-card publish-panel" [hidden]="tripTab !== 'settings'">
           <div>
             <span class="eyebrow">Fin du voyage & publication</span>
             <h3>
@@ -681,7 +697,7 @@
     }
 
     @if (screen === "journal" && selectedTrip && selectedDay) {
-      <section class="page journal-page">
+      <section class="page journal-page" [ngClass]="'journal-step-' + journalStep">
         <button class="back" (click)="openTrip(selectedTrip)">
           ← {{ selectedTrip.title }}
         </button>
@@ -698,6 +714,12 @@
           </div>
           <span class="autosave">☁ Brouillon automatique</span>
         </div>
+        <nav class="journal-stepper" aria-label="Étapes de la journée">
+          <button [class.active]="journalStep === 1" [class.done]="journalStep > 1" (click)="setJournalStep(1)"><b>1</b><span>Souvenirs<small>Photos et vidéos</small></span></button>
+          <button [class.active]="journalStep === 2" [class.done]="journalStep > 2" (click)="setJournalStep(2)"><b>2</b><span>Récit<small>Écrit ou vocal</small></span></button>
+          <button [class.active]="journalStep === 3" [class.done]="journalStep > 3" (click)="setJournalStep(3)"><b>3</b><span>Enrichir<small>Lieux et dépenses</small></span></button>
+          <button [class.active]="journalStep === 4" (click)="setJournalStep(4)"><b>4</b><span>Finaliser<small>Ta page de carnet</small></span></button>
+        </nav>
         <div class="journal-workspace">
           <div class="journal-editor">
             <div class="paper-card memory-input">
