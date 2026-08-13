@@ -24,6 +24,8 @@
         >
           Explorer
         </button>
+        <button (click)="openInspirations()">Inspirations</button>
+        <button class="nav-messages" (click)="openInbox()">Messages @if (unreadMessageCount + pendingFriendCount > 0) { <span class="notification-badge">{{ unreadMessageCount + pendingFriendCount > 9 ? '9+' : unreadMessageCount + pendingFriendCount }}</span> }</button>
         <button class="nav-create" (click)="go('new-trip')">
           ＋ Nouveau voyage
         </button>
@@ -51,7 +53,7 @@
               <div class="reader-timeline-page"><span class="timeline-kicker">Le voyage, d’un seul regard</span><h1>{{ readerPage.title }}</h1><p>{{ readerPage.country }} · le fil de nos souvenirs</p><div class="trip-thread">@for (day of readerPage.days; track day.date) { <article><b>{{ day.number | number:'2.0' }}</b><div><time>{{ formatDate(day.date) }}</time><h3>{{ day.title }}</h3><p>{{ day.summary }}</p></div></article> }</div><div class="timeline-flight">✈ 〰 〰 〰 ✦</div></div>
             } @else if (readerPage.kind === 'day') {
               <div class="reader-day-head"><span>Jour {{ readerPage.number | number:'2.0' }}</span><small>{{ formatDate(readerPage.date) }}</small><h1>{{ readerPage.title || 'Une journée à raconter' }}</h1></div>
-              @if (readerPage.photos?.length) { <div class="reader-photo-story" [class.single-photo]="readerPage.photos.length === 1" [class.two-photos]="readerPage.photos.length === 2"><img class="reader-main-photo" [src]="readerPage.photos[0]" alt="Souvenir de la journée">@for (photo of readerPage.photos.slice(1,3); track photo) { <img [src]="photo" alt="Souvenir de la journée"> }</div> } @else { <div class="reader-no-photo"><span>✦</span><div>Une journée vécue<br><b>au-delà de l’objectif</b></div><small>{{ readerPage.date | date:'dd · MM · yyyy' }}</small></div> }
+              @if (readerPage.photos?.length) { <div class="reader-photo-story" [class.single-photo]="readerPage.photos.length === 1" [class.two-photos]="readerPage.photos.length === 2"><img class="reader-main-photo" [src]="readerPage.photos[0]" alt="Souvenir de la journée">@for (photo of readerPage.photos.slice(1,3); track $index) { <img [src]="photo" alt="Souvenir de la journée"> }</div> } @else { <div class="reader-no-photo"><span>✦</span><div>Une journée vécue<br><b>au-delà de l’objectif</b></div><small>{{ readerPage.date | date:'dd · MM · yyyy' }}</small></div> }
               <p class="reader-summary">{{ readerPage.summary }}</p>
               <div class="reader-events">@for (event of readerPage.events; track event.order || $index) { <section><time>{{ event.time ? event.time.slice(0,5) : '✦' }}</time><div><h3>{{ event.title }}</h3><p>{{ event.description }}</p>@if (event.place) { <small>⌖ {{ event.place }}</small> }</div></section> }</div>
               <div class="reader-page-number">— {{ readerPage.number }} —</div>
@@ -889,7 +891,7 @@
                   📍 Les lieux détectés apparaîtront ici.
                 </div>
               }
-              @for (place of journal.places; track place.name) {
+              @for (place of journal.places; track (place.visitId || place.id || place.name) + '-' + $index) {
                 <div
                   class="place-suggestion"
                   [class.resolved]="place.status === 'rejected'"
@@ -1084,6 +1086,7 @@
             · {{ selectedPublicTrip.stats.days }} jours
           </p>
           <button class="hero-read-button public" (click)="openPublicReader()">Ouvrir le carnet page par page →</button>
+          <div class="public-social-actions"><button [disabled]="publicLikeBusy" (click)="togglePublicLike()">{{ selectedPublicTrip.liked ? '♥' : '♡' }} {{ selectedPublicTrip.likes || 0 }}</button><button (click)="toggleSave()">{{ selectedPublicTrip.saved ? '✓ Enregistré' : '🔖 Enregistrer' }}</button><button (click)="openCommunityProfile(selectedPublicTrip.author.id)">Profil voyageur</button><button (click)="startChat()">✉ Message</button></div>
         </div>
         <div class="public-stats">
           <div>
@@ -1099,6 +1102,7 @@
             ><span>villes</span>
           </div>
         </div>
+        <section class="comments-section paper-card"><h3>Commentaires · {{ commentsList.length }}</h3><div class="comment-compose"><textarea [(ngModel)]="commentDraft" placeholder="Partager un mot sur ce voyage…"></textarea><button class="primary" (click)="addPublicComment()">Publier</button></div>@for (comment of commentsList; track comment.id) { <article class="comment-row"><div class="mini-community-avatar">{{ (comment.author?.firstname || comment.author?.username || 'V').charAt(0) }}</div><div><b>{{ comment.author?.firstname || comment.author?.username || 'Voyageur' }}</b>@if (comment.author?.username) { <small class="comment-username">&#64;{{ comment.author.username }}</small> }<p>{{ comment.content }}</p><small>{{ comment.created_at | date:'short' }}</small></div><div><button (click)="reportTarget('comment',comment.id)">Signaler</button>@if (comment.user_id === userId) { <button (click)="removeComment(comment.id)">Supprimer</button> }</div></article> }</section>
         <aside class="paper-card public-author">
           <div class="big-avatar">
             {{
@@ -1156,7 +1160,7 @@
             </div>
           </div>
           <div class="place-public-grid">
-            @for (place of selectedPublicTrip.places; track place.name) {
+              @for (place of selectedPublicTrip.places; track (place.id || place.name) + '-' + $index) {
               <div class="paper-card">
                 <b>{{ place.name }}</b
                 ><span>📍 {{ place.city }}</span>
@@ -1170,6 +1174,16 @@
         }
       </section>
     }
+
+    @if (screen === "public-profile" && communityProfile) { <section class="page community-profile-page"><button class="back" (click)="openExplore()">← Explorer</button><div class="community-profile-hero paper-card"><div class="community-avatar">{{ (communityProfile.profile.firstname || communityProfile.profile.username).charAt(0) }}</div><div><span class="eyebrow">Voyageur public</span><h2>{{ communityProfile.profile.firstname || communityProfile.profile.username }}</h2><p>&#64;{{ communityProfile.profile.username }} · {{ communityProfile.profile.bio || 'Collectionne les beaux détours.' }}</p><div class="community-counts"><span><b>{{ communityProfile.countries.length }}</b> pays</span><span><b>{{ communityProfile.followers }}</b> abonnés</span><span><b>{{ communityProfile.following }}</b> abonnements</span><span><b>{{ communityProfile.publications.length }}</b> carnets</span></div></div><div class="profile-social-actions">@if (!relationship.blocked) { <button class="primary" (click)="toggleFollow()">{{ relationship.following ? '✓ Suivi(e)' : '+ Suivre' }}</button><button class="secondary" [disabled]="relationship.friendship?.status === 'pending' || relationship.friendship?.status === 'accepted'" (click)="requestFriend()">{{ relationship.friendship?.status === 'accepted' ? '✓ Amis' : relationship.friendship?.status === 'pending' ? 'Demande envoyée' : 'Ajouter en ami' }}</button><button class="secondary" (click)="startChat(communityProfile.profile.id)">Message</button> }<button class="danger-link" (click)="blockProfile()">Bloquer</button><button class="text-link" (click)="reportTarget('user',communityProfile.profile.id)">Signaler</button></div></div><div class="section-head"><div><span class="eyebrow">Passeport</span><h3>{{ communityProfile.countries.length }} pays visités</h3></div></div><div class="country-wall">@for (country of communityProfile.countries; track country) { <button (click)="exploreCountry(country)">✦ {{ country }}</button> }</div><div class="section-head"><div><span class="eyebrow">Carnets publics</span><h3>Ses voyages</h3></div></div><div class="public-grid compact-community-grid">@for (item of communityProfile.publications; track item.slug) { <article class="public-card scrapbook-card" (click)="openPublicTrip(item)"><div class="public-cover" [style.background-image]="item.snapshot.photos?.length ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' + item.snapshot.photos[0] + ')' : ''"><span class="cover-country">{{ item.snapshot.trip.country }}</span><b>{{ item.snapshot.trip.title }}</b></div></article> }</div></section> }
+
+    @if (screen === "inspirations") { <section class="page"><div class="page-title"><div><span class="eyebrow">À garder précieusement</span><h2>Mes inspirations</h2><p>Les carnets enregistrés pour plus tard.</p></div></div><div class="public-grid compact-community-grid">@for (item of inspirationsList; track item.id) { <article class="public-card scrapbook-card" (click)="openPublicTrip(item.publication)"><div class="public-cover" [style.background-image]="item.publication.snapshot.photos?.length ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' + item.publication.snapshot.photos[0] + ')' : ''"><span class="cover-country">{{ item.publication.snapshot.trip.country }}</span><b>{{ item.publication.snapshot.trip.title }}</b></div><div><p>Par {{ item.publication.snapshot.author.firstname || item.publication.snapshot.author.username }}</p></div></article> } @empty { <div class="empty-state paper-card"><span>🔖</span><h3>Aucune inspiration</h3><button class="primary" (click)="openExplore()">Explorer</button></div> }</div></section> }
+
+    @if (screen === "inbox") { <section class="page inbox-page"><div class="page-title"><div><span class="eyebrow">Entre voyageurs</span><h2>Messages</h2></div><button class="secondary" (click)="go('community-settings')">⚙ Confidentialité</button></div>@if (friendRequests.length) { <div class="friend-requests paper-card"><h3>Demandes d’amis <span class="section-count">{{ friendRequests.length }}</span></h3>@for (request of friendRequests; track request.id) { <div><span>{{ request.requester?.firstname || request.requester?.username || 'Voyageur' }} @if (request.requester?.username) { <small>&#64;{{ request.requester.username }}</small> }</span><button (click)="answerFriend(request.id,'accepted')">Accepter</button><button (click)="answerFriend(request.id,'rejected')">Refuser</button></div> }</div> }<div class="conversation-list">@for (item of inboxList; track item.conversation_id) { <button class="conversation-preview paper-card" (click)="openConversation(item.conversation_id)"><div class="mini-community-avatar">{{ (conversationPeer(item)?.firstname || conversationPeer(item)?.username || 'V').charAt(0) }}</div><div><b>{{ conversationPeer(item)?.firstname || conversationPeer(item)?.username || 'Voyageur' }}</b>@if (conversationPeer(item)?.username) { <small>&#64;{{ conversationPeer(item).username }}</small> }<p>{{ item.conversation?.messages?.at(-1)?.content || 'Commencer à échanger…' }}</p></div>@if (conversationUnread(item)) { <span class="conversation-unread">{{ conversationUnread(item) }}</span> } @else { <span>→</span> }</button> } @empty { <div class="empty-state paper-card"><span>✉</span><h3>Ta boîte est encore calme</h3><p>Ouvre un profil pour écrire à un voyageur.</p></div> }</div></section> }
+
+    @if (screen === "conversation") { <section class="conversation-page"><header><button (click)="openInbox()">← Messages</button><div class="conversation-identity"><div class="mini-community-avatar">{{ (activeConversationPeer?.firstname || activeConversationPeer?.username || 'V').charAt(0) }}</div><span><b>{{ activeConversationPeer?.firstname || activeConversationPeer?.username || 'Voyageur' }}</b>@if (activeConversationPeer?.username) { <small>&#64;{{ activeConversationPeer.username }}</small> }</span></div><button (click)="hideActiveConversation()">Masquer</button></header><div class="message-thread">@for (message of messagesList; track message.id) { <article [class.mine]="message.sender_id === userId"><div>{{ message.content }}</div><small>{{ message.created_at | date:'shortTime' }}</small><button (click)="reportTarget('message',message.id)">⋯</button></article> }</div><footer class="message-composer"><textarea [(ngModel)]="messageDraft" placeholder="Écrire un message…"></textarea><button class="primary" (click)="sendChat()">Envoyer</button></footer></section> }
+
+    @if (screen === "community-settings") { <section class="page form-page"><button class="back" (click)="openInbox()">← Messages</button><div class="paper-card community-settings"><span class="eyebrow">Confidentialité</span><h2>Qui peut m’écrire ?</h2><label><input type="radio" name="permission" value="everyone" [(ngModel)]="messagePermission"> Tout le monde</label><label><input type="radio" name="permission" value="following" [(ngModel)]="messagePermission"> Les personnes que je suis</label><label><input type="radio" name="permission" value="friends" [(ngModel)]="messagePermission"> Mes amis</label><label><input type="radio" name="permission" value="nobody" [(ngModel)]="messagePermission"> Personne</label><button class="primary wide" (click)="updateMessagePermission()">Enregistrer</button></div></section> }
 
     @if (screen === "profile") {
       <section class="page profile-page">

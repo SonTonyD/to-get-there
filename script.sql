@@ -410,3 +410,156 @@ create policy published_media_public_read on storage.objects for select using(bu
 -- Amélioration esthétique des carnets : un contenu, plusieurs moteurs de rendu.
 alter table public.day_journals drop constraint if exists day_journals_layout_check;
 alter table public.day_journals add constraint day_journals_layout_check check(layout in ('scrapbook','editorial','timeline'));
+
+-- ============================================================
+-- Sous-lot 2A · Communauté, relations, modération et messagerie
+-- ============================================================
+create type public.friendship_status as enum ('pending','accepted','rejected','blocked');
+create type public.community_target as enum ('trip','day','recommendation');
+create type public.message_kind as enum ('text','share');
+create type public.message_permission as enum ('everyone','following','friends','nobody');
+create type public.report_target as enum ('user','comment','message');
+create type public.moderation_status as enum ('pending','reviewing','resolved','dismissed');
+create type public.trip_audience as enum ('only_me','selected_people','friends','public');
+
+alter table public.privacy_settings add column message_permission public.message_permission not null default 'everyone';
+alter table public.trips add column audience public.trip_audience not null default 'only_me';
+
+create table public.follows (
+  id uuid primary key default gen_random_uuid(), follower_id uuid not null references auth.users(id) on delete cascade,
+  followed_id uuid not null references auth.users(id) on delete cascade, created_at timestamptz not null default now(),
+  check(follower_id<>followed_id), unique(follower_id,followed_id)
+);
+create table public.friendships (
+  id uuid primary key default gen_random_uuid(), requester_id uuid not null references auth.users(id) on delete cascade,
+  recipient_id uuid not null references auth.users(id) on delete cascade, status public.friendship_status not null default 'pending',
+  created_at timestamptz not null default now(), accepted_at timestamptz, check(requester_id<>recipient_id)
+);
+create unique index friendships_pair_unique on public.friendships(least(requester_id,recipient_id),greatest(requester_id,recipient_id));
+create table public.community_likes (
+  id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
+  target_type public.community_target not null, target_id uuid not null, created_at timestamptz not null default now(),
+  unique(user_id,target_type,target_id)
+);
+create table public.comments (
+  id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
+  target_type public.community_target not null check(target_type in ('trip','day')), target_id uuid not null,
+  content text not null check(char_length(content) between 1 and 1500), created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+);
+create trigger comments_touch before update on public.comments for each row execute function public.touch_updated_at();
+create table public.saved_trips (
+  id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
+  trip_id uuid not null references public.trips(id) on delete cascade, created_at timestamptz not null default now(), unique(user_id,trip_id)
+);
+create table public.conversations (id uuid primary key default gen_random_uuid(), created_at timestamptz not null default now());
+create table public.conversation_members (
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade, hidden_at timestamptz, joined_at timestamptz not null default now(),
+  primary key(conversation_id,user_id)
+);
+create table public.messages (
+  id uuid primary key default gen_random_uuid(), conversation_id uuid not null references public.conversations(id) on delete cascade,
+  sender_id uuid not null references auth.users(id) on delete cascade, message_type public.message_kind not null default 'text',
+  content text check(content is null or char_length(content)<=4000), shared_entity_type public.community_target,
+  shared_entity_id uuid, created_at timestamptz not null default now()
+);
+create table public.message_reads (
+  message_id uuid not null references public.messages(id) on delete cascade, user_id uuid not null references auth.users(id) on delete cascade,
+  read_at timestamptz not null default now(), primary key(message_id,user_id)
+);
+create table public.user_blocks (
+  id uuid primary key default gen_random_uuid(), blocker_id uuid not null references auth.users(id) on delete cascade,
+  blocked_id uuid not null references auth.users(id) on delete cascade, created_at timestamptz not null default now(),
+  check(blocker_id<>blocked_id), unique(blocker_id,blocked_id)
+);
+create table public.reports (
+  id uuid primary key default gen_random_uuid(), reporter_id uuid not null references auth.users(id) on delete cascade,
+  target_type public.report_target not null, target_id uuid not null, reason text not null check(char_length(reason) between 3 and 500),
+  details text, status public.moderation_status not null default 'pending', created_at timestamptz not null default now(), resolved_at timestamptz
+);
+create table public.trip_audience_members (trip_id uuid references public.trips(id) on delete cascade,user_id uuid references auth.users(id) on delete cascade,primary key(trip_id,user_id));
+
+create or replace function public.users_blocked(a uuid,b uuid) returns boolean language sql stable security definer set search_path='' as $$
+select exists(select 1 from public.user_blocks where (blocker_id=a and blocked_id=b) or (blocker_id=b and blocked_id=a)); $$;
+create or replace function public.are_friends(a uuid,b uuid) returns boolean language sql stable security definer set search_path='' as $$
+select exists(select 1 from public.friendships where status='accepted' and ((requester_id=a and recipient_id=b) or (requester_id=b and recipient_id=a))); $$;
+create or replace function public.can_message(sender uuid,recipient uuid) returns boolean language plpgsql stable security definer set search_path='' as $$
+declare permission public.message_permission;
+begin if sender=recipient or public.users_blocked(sender,recipient) then return false; end if;
+select message_permission into permission from public.privacy_settings where user_id=recipient;
+return case coalesce(permission,'everyone') when 'everyone' then true when 'following' then exists(select 1 from public.follows where follower_id=recipient and followed_id=sender) when 'friends' then public.are_friends(sender,recipient) else false end; end; $$;
+
+create or replace function public.start_conversation(other_user uuid) returns uuid language plpgsql security definer set search_path='' as $$
+declare conversation uuid;
+begin if not public.can_message(auth.uid(),other_user) then raise exception 'Cette personne n’accepte pas vos messages'; end if;
+select cm1.conversation_id into conversation from public.conversation_members cm1 join public.conversation_members cm2 on cm2.conversation_id=cm1.conversation_id where cm1.user_id=auth.uid() and cm2.user_id=other_user and (select count(*) from public.conversation_members x where x.conversation_id=cm1.conversation_id)=2 limit 1;
+if conversation is null then insert into public.conversations default values returning id into conversation; insert into public.conversation_members(conversation_id,user_id) values(conversation,auth.uid()),(conversation,other_user); end if; return conversation; end; $$;
+
+create or replace function public.send_message(target_conversation uuid,body text,msg_type public.message_kind default 'text',entity_type public.community_target default null,entity_id uuid default null) returns uuid language plpgsql security definer set search_path='' as $$
+declare recipient uuid; result uuid;
+begin if not exists(select 1 from public.conversation_members where conversation_id=target_conversation and user_id=auth.uid()) then raise exception 'Conversation non autorisée'; end if;
+select user_id into recipient from public.conversation_members where conversation_id=target_conversation and user_id<>auth.uid() limit 1;
+if recipient is null or not public.can_message(auth.uid(),recipient) then raise exception 'Message non autorisé'; end if;
+insert into public.messages(conversation_id,sender_id,message_type,content,shared_entity_type,shared_entity_id) values(target_conversation,auth.uid(),msg_type,body,entity_type,entity_id) returning id into result; update public.conversation_members set hidden_at=null where conversation_id=target_conversation; return result; end; $$;
+
+alter table public.follows enable row level security; alter table public.friendships enable row level security;
+alter table public.community_likes enable row level security; alter table public.comments enable row level security;
+alter table public.saved_trips enable row level security; alter table public.conversations enable row level security;
+alter table public.conversation_members enable row level security; alter table public.messages enable row level security;
+alter table public.message_reads enable row level security; alter table public.user_blocks enable row level security;
+alter table public.reports enable row level security; alter table public.trip_audience_members enable row level security;
+create policy follows_read on public.follows for select using(not public.users_blocked(follower_id,followed_id)); create policy follows_own on public.follows for insert with check(follower_id=auth.uid() and not public.users_blocked(follower_id,followed_id)); create policy follows_delete on public.follows for delete using(follower_id=auth.uid());
+create policy friendships_members_read on public.friendships for select using(auth.uid() in(requester_id,recipient_id)); create policy friendships_request on public.friendships for insert with check(requester_id=auth.uid() and status='pending' and not public.users_blocked(requester_id,recipient_id)); create policy friendships_members_update on public.friendships for update using(auth.uid() in(requester_id,recipient_id));
+create policy likes_read on public.community_likes for select using(true); create policy likes_own on public.community_likes for insert with check(user_id=auth.uid()); create policy likes_delete on public.community_likes for delete using(user_id=auth.uid());
+create policy comments_read on public.comments for select using(not public.users_blocked(auth.uid(),user_id)); create policy comments_create on public.comments for insert with check(user_id=auth.uid()); create policy comments_change on public.comments for update using(user_id=auth.uid()); create policy comments_delete on public.comments for delete using(user_id=auth.uid());
+create policy saves_own on public.saved_trips for all using(user_id=auth.uid()) with check(user_id=auth.uid());
+create policy conversation_member_read on public.conversations for select using(exists(select 1 from public.conversation_members where conversation_id=id and user_id=auth.uid()));
+create policy members_read on public.conversation_members for select using(exists(select 1 from public.conversation_members mine where mine.conversation_id=conversation_id and mine.user_id=auth.uid())); create policy members_hide on public.conversation_members for update using(user_id=auth.uid());
+create policy messages_members_read on public.messages for select using(exists(select 1 from public.conversation_members where conversation_id=messages.conversation_id and user_id=auth.uid()));
+create policy reads_own on public.message_reads for all using(user_id=auth.uid()) with check(user_id=auth.uid());
+create policy blocks_own on public.user_blocks for all using(blocker_id=auth.uid()) with check(blocker_id=auth.uid());
+create policy reports_create on public.reports for insert with check(reporter_id=auth.uid()); create policy reports_own_read on public.reports for select using(reporter_id=auth.uid());
+create policy audience_owner on public.trip_audience_members for all using(exists(select 1 from public.trips where id=trip_id and owner_id=auth.uid())) with check(exists(select 1 from public.trips where id=trip_id and owner_id=auth.uid()));
+grant execute on function public.start_conversation(uuid) to authenticated; grant execute on function public.send_message(uuid,text,public.message_kind,public.community_target,uuid) to authenticated;
+
+-- Évite toute récursion RLS lors de la lecture des membres d'une conversation.
+create or replace function public.is_conversation_member(target_conversation uuid) returns boolean
+language sql stable security definer set search_path='' as $$
+select exists(select 1 from public.conversation_members where conversation_id=target_conversation and user_id=auth.uid()); $$;
+drop policy if exists conversation_member_read on public.conversations;
+drop policy if exists members_read on public.conversation_members;
+drop policy if exists messages_members_read on public.messages;
+create policy conversation_member_read on public.conversations for select using(public.is_conversation_member(id));
+create policy members_read on public.conversation_members for select using(public.is_conversation_member(conversation_id));
+create policy messages_members_read on public.messages for select using(public.is_conversation_member(conversation_id));
+
+-- Version explicite de la création de conversation : erreurs métier lisibles côté client.
+create or replace function public.start_conversation(other_user uuid) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare current_user_id uuid:=auth.uid(); conversation_id_result uuid; permission public.message_permission;
+begin
+  if current_user_id is null then raise exception using errcode='P0001',message='AUTH_REQUIRED'; end if;
+  if other_user is null or not exists(select 1 from auth.users where id=other_user) then raise exception using errcode='P0001',message='USER_NOT_FOUND'; end if;
+  if current_user_id=other_user then raise exception using errcode='P0001',message='CANNOT_MESSAGE_SELF'; end if;
+  if public.users_blocked(current_user_id,other_user) then raise exception using errcode='P0001',message='USER_BLOCKED'; end if;
+  select coalesce(message_permission,'everyone') into permission from public.privacy_settings where user_id=other_user;
+  permission:=coalesce(permission,'everyone');
+  if permission='nobody' then raise exception using errcode='P0001',message='MESSAGES_DISABLED'; end if;
+  if permission='following' and not exists(select 1 from public.follows where follower_id=other_user and followed_id=current_user_id) then raise exception using errcode='P0001',message='FOLLOW_REQUIRED'; end if;
+  if permission='friends' and not public.are_friends(current_user_id,other_user) then raise exception using errcode='P0001',message='FRIENDSHIP_REQUIRED'; end if;
+  select first_member.conversation_id into conversation_id_result from public.conversation_members first_member
+  where first_member.user_id=current_user_id and exists(select 1 from public.conversation_members second_member where second_member.conversation_id=first_member.conversation_id and second_member.user_id=other_user)
+  and (select count(*) from public.conversation_members member_count where member_count.conversation_id=first_member.conversation_id)=2 limit 1;
+  if conversation_id_result is null then
+    insert into public.conversations default values returning id into conversation_id_result;
+    insert into public.conversation_members(conversation_id,user_id) values(conversation_id_result,current_user_id),(conversation_id_result,other_user);
+  else update public.conversation_members set hidden_at=null where conversation_id=conversation_id_result and user_id=current_user_id;
+  end if;
+  return conversation_id_result;
+end; $$;
+grant execute on function public.start_conversation(uuid) to authenticated;
+
+-- Les profils constituent l'identité publique de la communauté. Les données sensibles
+-- restent dans traveler_profiles et privacy_settings, qui ne sont jamais exposées ici.
+drop policy if exists profiles_community_read on public.profiles;
+create policy profiles_community_read on public.profiles for select to authenticated using (true);

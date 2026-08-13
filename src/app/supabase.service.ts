@@ -225,4 +225,86 @@ export class SupabaseService {
       }))
     })));
   }
+
+  async communityProfile(userId: string) {
+    const [{ data: profile, error }, { data: publications }, { data: countries }, { count: followers }, { count: following }] = await Promise.all([
+      this.db.from('profiles').select('*').eq('id', userId).single(),
+      this.db.from('trip_publications').select('slug,snapshot,published_at').eq('owner_id', userId).order('published_at', { ascending: false }),
+      this.db.from('profile_countries').select('country').eq('user_id', userId),
+      this.db.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', userId),
+      this.db.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
+    ]); if (error) throw error; return { profile, publications: publications ?? [], countries: (countries ?? []).map(c => c.country), followers: followers ?? 0, following: following ?? 0 };
+  }
+  async relationship(userId: string) { const me=await this.currentUser(); if(!me)return{}; const [{data:follow},{data:friendship},{data:block}]=await Promise.all([this.db.from('follows').select('id').eq('follower_id',me.id).eq('followed_id',userId).maybeSingle(),this.db.from('friendships').select('*').or(`and(requester_id.eq.${me.id},recipient_id.eq.${userId}),and(requester_id.eq.${userId},recipient_id.eq.${me.id})`).maybeSingle(),this.db.from('user_blocks').select('id').eq('blocker_id',me.id).eq('blocked_id',userId).maybeSingle()]);return{following:!!follow,friendship,blocked:!!block}; }
+  async toggleFollow(userId:string,active:boolean){const me=await this.currentUser();if(!me)throw new Error('Non connecté');const query=this.db.from('follows');const{error}=active?await query.delete().eq('follower_id',me.id).eq('followed_id',userId):await query.insert({follower_id:me.id,followed_id:userId});if(error)throw error;}
+  async requestFriend(userId:string){const me=await this.currentUser();if(!me)throw new Error('Non connecté');const{error}=await this.db.from('friendships').insert({requester_id:me.id,recipient_id:userId});if(error)throw error;}
+  async friendshipRequests(){
+    const me=await this.currentUser();
+    if(!me)return[];
+    const{data:requests,error}=await this.db.from('friendships').select('*').eq('recipient_id',me.id).eq('status','pending').order('created_at',{ascending:false});
+    if(error)throw error;
+    const requesterIds=[...new Set((requests??[]).map(request=>request.requester_id))];
+    if(!requesterIds.length)return[];
+    const{data:profiles,error:profileError}=await this.db.from('profiles').select('id,username,firstname,profile_picture').in('id',requesterIds);
+    if(profileError)throw profileError;
+    return(requests??[]).map(request=>({...request,requester:(profiles??[]).find(profile=>profile.id===request.requester_id)??null}));
+  }
+  async answerFriendship(id:string,status:'accepted'|'rejected'){const{error}=await this.db.from('friendships').update({status,accepted_at:status==='accepted'?new Date().toISOString():null}).eq('id',id);if(error)throw error;}
+  async toggleLike(targetType:'trip'|'day'|'recommendation',targetId:string,active:boolean){const me=await this.currentUser();if(!me)throw new Error('Non connecté');const q=this.db.from('community_likes');const{error}=active?await q.delete().eq('user_id',me.id).eq('target_type',targetType).eq('target_id',targetId):await q.upsert({user_id:me.id,target_type:targetType,target_id:targetId},{onConflict:'user_id,target_type,target_id',ignoreDuplicates:true});if(error)throw error;}
+  async tripEngagement(tripId:string){const me=await this.currentUser();const[{count},{data:mine},{data:saved}]=await Promise.all([this.db.from('community_likes').select('*',{count:'exact',head:true}).eq('target_type','trip').eq('target_id',tripId),me?this.db.from('community_likes').select('id').eq('user_id',me.id).eq('target_type','trip').eq('target_id',tripId).maybeSingle():Promise.resolve({data:null}),me?this.db.from('saved_trips').select('id').eq('user_id',me.id).eq('trip_id',tripId).maybeSingle():Promise.resolve({data:null})]);return{likes:count??0,liked:!!mine,saved:!!saved};}
+  async comments(targetType:'trip'|'day',targetId:string){
+    const{data:comments,error}=await this.db.from('comments').select('*').eq('target_type',targetType).eq('target_id',targetId).order('created_at');
+    if(error)throw error;
+    const authorIds=[...new Set((comments??[]).map(comment=>comment.user_id))];
+    if(!authorIds.length)return[];
+    const{data:profiles,error:profileError}=await this.db.from('profiles').select('id,username,firstname,profile_picture').in('id',authorIds);
+    if(profileError)throw profileError;
+    return(comments??[]).map(comment=>({...comment,author:(profiles??[]).find(profile=>profile.id===comment.user_id)??null}));
+  }
+  async addComment(targetType:'trip'|'day',targetId:string,content:string){const me=await this.currentUser();if(!me)throw new Error('Non connecté');const{error}=await this.db.from('comments').insert({user_id:me.id,target_type:targetType,target_id:targetId,content});if(error)throw error;}
+  async deleteComment(id:string){const{error}=await this.db.from('comments').delete().eq('id',id);if(error)throw error;}
+  async toggleSaveTrip(tripId:string,active:boolean){const me=await this.currentUser();if(!me)throw new Error('Non connecté');const q=this.db.from('saved_trips');const{error}=active?await q.delete().eq('user_id',me.id).eq('trip_id',tripId):await q.insert({user_id:me.id,trip_id:tripId});if(error)throw error;}
+  async inspirations(){const me=await this.currentUser();if(!me)return[];const{data:saves,error}=await this.db.from('saved_trips').select('id,trip_id,created_at').eq('user_id',me.id).order('created_at',{ascending:false});if(error)throw error;if(!saves?.length)return[];const{data:publications,error:publicationError}=await this.db.from('trip_publications').select('trip_id,slug,snapshot').in('trip_id',saves.map(item=>item.trip_id));if(publicationError)throw publicationError;return saves.map(save=>({...save,publication:publications?.find(item=>item.trip_id===save.trip_id)})).filter(item=>item.publication);}
+  async startConversation(userId:string){const{data,error}=await this.db.rpc('start_conversation',{other_user:userId});if(error)throw error;return data as string;}
+  async inbox(){
+    const me=await this.currentUser();
+    if(!me)return[];
+    const{data:mine,error}=await this.db.from('conversation_members').select('conversation_id,hidden_at').eq('user_id',me.id).is('hidden_at',null);
+    if(error)throw error;
+    const conversationIds=(mine??[]).map(item=>item.conversation_id);
+    if(!conversationIds.length)return[];
+    const[{data:conversations,error:conversationError},{data:members,error:memberError},{data:messages,error:messageError}]=await Promise.all([
+      this.db.from('conversations').select('id,created_at').in('id',conversationIds),
+      this.db.from('conversation_members').select('conversation_id,user_id').in('conversation_id',conversationIds),
+      this.db.from('messages').select('id,conversation_id,sender_id,content,message_type,shared_entity_type,shared_entity_id,created_at').in('conversation_id',conversationIds).order('created_at',{ascending:true})
+    ]);
+    if(conversationError)throw conversationError;if(memberError)throw memberError;if(messageError)throw messageError;
+    const messageIds=(messages??[]).map(message=>message.id);
+    const{data:reads,error:readError}=messageIds.length?await this.db.from('message_reads').select('message_id,user_id,read_at').eq('user_id',me.id).in('message_id',messageIds):{data:[],error:null};
+    if(readError)throw readError;
+    const readIds=new Set((reads??[]).map(read=>read.message_id));
+    const userIds=[...new Set((members??[]).map(member=>member.user_id))];
+    const{data:profiles,error:profileError}=userIds.length?await this.db.from('profiles').select('id,username,firstname,profile_picture').in('id',userIds):{data:[],error:null};
+    if(profileError)throw profileError;
+    return(mine??[]).map(item=>({
+      ...item,
+      conversation:{
+        ...(conversations??[]).find(conversation=>conversation.id===item.conversation_id),
+        members:(members??[]).filter(member=>member.conversation_id===item.conversation_id).map(member=>({...member,profile:(profiles??[]).find(profile=>profile.id===member.user_id)??null})),
+        messages:(messages??[]).filter(message=>message.conversation_id===item.conversation_id).map(message=>({...message,read:readIds.has(message.id)}))
+      }
+    })).sort((a,b)=>{
+      const aMessages=a.conversation.messages;const bMessages=b.conversation.messages;
+      const aDate=aMessages.at(-1)?.created_at??a.conversation.created_at??'';
+      const bDate=bMessages.at(-1)?.created_at??b.conversation.created_at??'';
+      return bDate.localeCompare(aDate);
+    });
+  }
+  async conversation(id:string){const{data,error}=await this.db.from('messages').select('*').eq('conversation_id',id).order('created_at');if(error)throw error;return data??[];}
+  async markConversationRead(id:string){const me=await this.currentUser();if(!me)return;const{data:messages,error}=await this.db.from('messages').select('id').eq('conversation_id',id).neq('sender_id',me.id);if(error)throw error;if(!messages?.length)return;const{error:readError}=await this.db.from('message_reads').upsert(messages.map(message=>({message_id:message.id,user_id:me.id})),{onConflict:'message_id,user_id',ignoreDuplicates:true});if(readError)throw readError;}
+  async sendMessage(id:string,content:string,share?:{type:'trip'|'day'|'recommendation';id:string}){const{error}=await this.db.rpc('send_message',{target_conversation:id,body:content,msg_type:share?'share':'text',entity_type:share?.type??null,entity_id:share?.id??null});if(error)throw error;}
+  async hideConversation(id:string){const me=await this.currentUser();if(!me)return;const{error}=await this.db.from('conversation_members').update({hidden_at:new Date().toISOString()}).eq('conversation_id',id).eq('user_id',me.id);if(error)throw error;}
+  async blockUser(userId:string){const me=await this.currentUser();if(!me)return;const{error}=await this.db.from('user_blocks').upsert({blocker_id:me.id,blocked_id:userId});if(error)throw error;}
+  async report(type:'user'|'comment'|'message',id:string,reason:string){const me=await this.currentUser();if(!me)return;const{error}=await this.db.from('reports').insert({reporter_id:me.id,target_type:type,target_id:id,reason});if(error)throw error;}
+  async saveMessagePermission(value:'everyone'|'following'|'friends'|'nobody'){const me=await this.currentUser();if(!me)return;const{error}=await this.db.from('privacy_settings').update({message_permission:value}).eq('user_id',me.id);if(error)throw error;}
 }

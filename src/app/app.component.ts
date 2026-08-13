@@ -1,10 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SupabaseService } from './supabase.service';
 import * as L from 'leaflet';
 
-type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'journal' | 'explore' | 'public-trip' | 'reader' | 'profile';
+type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'journal' | 'explore' | 'public-trip' | 'public-profile' | 'inspirations' | 'inbox' | 'conversation' | 'community-settings' | 'reader' | 'profile';
 type AuthMode = 'login' | 'signup' | 'forgot';
 
 interface TripDay { id?: string; date: string; label: string; note: string; }
@@ -20,13 +20,14 @@ interface Trip {
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   screen: Screen = 'splash';
   authMode: AuthMode = 'signup';
   menuOpen = false;
   selectedTrip: Trip | null = null;
   toast = '';
   user = { email: '', username: '', firstname: '', bio: '', avatar: 'É' };
+  userId = '';
   auth = { email: '', password: '', username: '', firstname: '' };
   questionnaire = { personality: 'curieuse', anxiety: 2, noise: 2, crowd: 2, diet: '', allergies: '', mobility: '', notes: '' };
   tripForm = { title: 'Vietnam 2026', country: 'Vietnam', startDate: '2026-04-12', endDate: '2026-04-24', currency: 'EUR', budget: 2400 as number | null, visibility: 'private' as 'private' | 'public' };
@@ -42,10 +43,16 @@ export class AppComponent implements OnInit {
   publication = { photos: true, story: true, recommendations: true, budget: false, design: 'scrapbook' };
   exploreSearch = ''; publicTrips: any[] = []; selectedPublicTrip: any = null;
   readerPages: any[] = []; readerIndex = 0; readerOrigin: Screen = 'dashboard'; readerTrip: any = null;
+  communityProfile:any=null; relationship:any={}; commentsList:any[]=[]; commentDraft=''; inspirationsList:any[]=[];
+  publicLikeBusy=false;
+  inboxList:any[]=[]; activeConversationId=''; messagesList:any[]=[]; messageDraft=''; friendRequests:any[]=[];
+  activeConversationPeer:any=null; unreadMessageCount=0; pendingFriendCount=0;
+  messagePermission:'everyone'|'following'|'friends'|'nobody'='everyone';
   private map?: L.Map;
   private recorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private autosaveTimer?: ReturnType<typeof setTimeout>;
+  private communityPollTimer?: ReturnType<typeof setInterval>;
 
   constructor(private readonly supabase: SupabaseService) {}
 
@@ -54,6 +61,8 @@ export class AppComponent implements OnInit {
     const currentUser = await this.supabase.currentUser();
     if (currentUser) await this.loadAccount(currentUser.id, currentUser.email ?? '');
   }
+
+  ngOnDestroy(){if(this.communityPollTimer)clearInterval(this.communityPollTimer)}
 
   go(screen: Screen) { this.screen = screen; this.menuOpen = false; window.scrollTo({ top: 0, behavior: 'smooth' }); }
   start() { this.go('auth'); }
@@ -171,7 +180,35 @@ export class AppComponent implements OnInit {
   get publicAuthorTrips(){const id=this.selectedPublicTrip?.author?.id;return this.publicTrips.filter(item=>item.snapshot?.author?.id===id)}
   get publicAuthorCountries(){return [...new Set(this.publicAuthorTrips.map(item=>item.snapshot.trip.country))]}
   exploreCountry(country:string){this.exploreSearch=country;this.openExplore()}
-  openPublicTrip(item:any){this.selectedPublicTrip=item.snapshot;this.go('public-trip')}
+  async openPublicTrip(item:any){this.selectedPublicTrip=item.snapshot;this.go('public-trip');await this.loadPublicInteractions()}
+  async loadPublicInteractions(){
+    const tripId=this.selectedPublicTrip?.trip?.id;
+    if(!tripId)return;
+    const[commentsResult,engagementResult]=await Promise.allSettled([this.supabase.comments('trip',tripId),this.supabase.tripEngagement(tripId)]);
+    if(commentsResult.status==='fulfilled')this.commentsList=commentsResult.value;else this.notify(this.errorMessage(commentsResult.reason));
+    if(engagementResult.status==='fulfilled')Object.assign(this.selectedPublicTrip,engagementResult.value);else this.notify(this.errorMessage(engagementResult.reason));
+  }
+  async togglePublicLike(){const tripId=this.selectedPublicTrip?.trip?.id;if(!tripId||this.publicLikeBusy)return;this.publicLikeBusy=true;try{await this.supabase.toggleLike('trip',tripId,!!this.selectedPublicTrip.liked);const engagement=await this.supabase.tripEngagement(tripId);Object.assign(this.selectedPublicTrip,engagement)}catch(error){this.notify(this.errorMessage(error))}finally{this.publicLikeBusy=false}}
+  async openCommunityProfile(userId:string){try{this.communityProfile=await this.supabase.communityProfile(userId);this.relationship=await this.supabase.relationship(userId);this.go('public-profile')}catch(error){this.notify(this.errorMessage(error))}}
+  async toggleFollow(){if(!this.communityProfile)return;try{await this.supabase.toggleFollow(this.communityProfile.profile.id,this.relationship.following);this.relationship.following=!this.relationship.following;this.communityProfile.followers+=this.relationship.following?1:-1}catch(error){this.notify(this.errorMessage(error))}}
+  async requestFriend(){try{await this.supabase.requestFriend(this.communityProfile.profile.id);this.relationship.friendship={status:'pending'};this.notify('Demande d’amitié envoyée')}catch(error){this.notify(this.errorMessage(error))}}
+  async addPublicComment(){const tripId=this.selectedPublicTrip?.trip?.id;if(!tripId||!this.commentDraft.trim())return;try{await this.supabase.addComment('trip',tripId,this.commentDraft.trim());this.commentDraft='';await this.loadPublicInteractions()}catch(error){this.notify(this.errorMessage(error))}}
+  async removeComment(id:string){try{await this.supabase.deleteComment(id);await this.loadPublicInteractions()}catch(error){this.notify(this.errorMessage(error))}}
+  async toggleSave(){const tripId=this.selectedPublicTrip?.trip?.id;if(!tripId)return;try{await this.supabase.toggleSaveTrip(tripId,!!this.selectedPublicTrip.saved);this.selectedPublicTrip.saved=!this.selectedPublicTrip.saved;this.notify(this.selectedPublicTrip.saved?'Voyage ajouté aux inspirations':'Voyage retiré')}catch(error){this.notify(this.errorMessage(error))}}
+  async openInspirations(){this.go('inspirations');try{this.inspirationsList=await this.supabase.inspirations()}catch(error){this.notify(this.errorMessage(error))}}
+  async startChat(userId?:string){const target=userId??this.selectedPublicTrip?.author?.id;if(!target)return;if(target===this.userId){this.notify('Tu ne peux pas démarrer une conversation avec toi-même.');return}try{this.activeConversationId=await this.supabase.startConversation(target);await this.openConversation(this.activeConversationId)}catch(error){this.notify(this.communityErrorMessage(error))}}
+  conversationPeer(item:any){return item?.conversation?.members?.find((member:any)=>member.user_id!==this.userId)?.profile??null}
+  conversationUnread(item:any){return item?.conversation?.messages?.filter((message:any)=>message.sender_id!==this.userId&&!message.read).length??0}
+  async refreshCommunityAlerts(announce=false){try{const[inbox,requests]=await Promise.all([this.supabase.inbox(),this.supabase.friendshipRequests()]);const unread=inbox.reduce((total,item)=>total+this.conversationUnread(item),0);if(announce&&unread>this.unreadMessageCount)this.notify('Tu as reçu un nouveau message ✉');else if(announce&&requests.length>this.pendingFriendCount)this.notify('Nouvelle demande d’amitié ✦');this.inboxList=inbox;this.friendRequests=requests;this.unreadMessageCount=unread;this.pendingFriendCount=requests.length}catch(error){if(!announce)this.notify(this.errorMessage(error))}}
+  private startCommunityPolling(){if(this.communityPollTimer)clearInterval(this.communityPollTimer);void this.refreshCommunityAlerts();this.communityPollTimer=setInterval(()=>void this.refreshCommunityAlerts(true),20000)}
+  async openInbox(){this.go('inbox');await this.refreshCommunityAlerts()}
+  async openConversation(id:string){this.activeConversationId=id;if(!this.inboxList.some(item=>item.conversation_id===id))await this.refreshCommunityAlerts();const item=this.inboxList.find(entry=>entry.conversation_id===id);this.activeConversationPeer=this.conversationPeer(item);this.go('conversation');try{this.messagesList=await this.supabase.conversation(id);await this.supabase.markConversationRead(id);await this.refreshCommunityAlerts()}catch(error){this.notify(this.errorMessage(error))}}
+  async sendChat(){if(!this.messageDraft.trim())return;try{await this.supabase.sendMessage(this.activeConversationId,this.messageDraft.trim());this.messageDraft='';this.messagesList=await this.supabase.conversation(this.activeConversationId)}catch(error){this.notify(this.errorMessage(error))}}
+  async hideActiveConversation(){try{await this.supabase.hideConversation(this.activeConversationId);await this.openInbox()}catch(error){this.notify(this.errorMessage(error))}}
+  async answerFriend(id:string,status:'accepted'|'rejected'){try{await this.supabase.answerFriendship(id,status);this.friendRequests=this.friendRequests.filter(item=>item.id!==id);this.pendingFriendCount=this.friendRequests.length}catch(error){this.notify(this.errorMessage(error))}}
+  async blockProfile(){if(!this.communityProfile)return;if(!confirm('Bloquer cet utilisateur ?'))return;try{await this.supabase.blockUser(this.communityProfile.profile.id);this.relationship.blocked=true;this.notify('Utilisateur bloqué')}catch(error){this.notify(this.errorMessage(error))}}
+  async reportTarget(type:'user'|'comment'|'message',id:string){const reason=prompt('Pourquoi souhaitez-vous signaler ce contenu ?');if(!reason)return;try{await this.supabase.report(type,id,reason);this.notify('Signalement transmis')}catch(error){this.notify(this.errorMessage(error))}}
+  async updateMessagePermission(){try{await this.supabase.saveMessagePermission(this.messagePermission);this.notify('Préférence enregistrée')}catch(error){this.notify(this.errorMessage(error))}}
   async openOwnerReader() { if (!this.selectedTrip) return; try { const days=await this.supabase.tripReader(this.selectedTrip.id); this.readerTrip={ title:this.selectedTrip.title,country:this.selectedTrip.country,startDate:this.selectedTrip.startDate,endDate:this.selectedTrip.endDate,author:this.user.firstname,design:'scrapbook',stats:this.tripStats }; this.readerPages=this.buildReaderPages(days.map((day:any)=>{const journal=day.day_journals?.[0]??day.day_journals??{};return{date:day.day_date,title:journal.title||day.label||`Jour ${day.day_number}`,summary:journal.summary||day.notes||'',layout:'scrapbook',events:(journal.journal_events??[]).sort((a:any,b:any)=>a.event_order-b.event_order).map((event:any)=>({time:event.event_time,title:event.title,description:event.description,place:event.place_text})),photos:(day.trip_media??[]).map((media:any)=>media.url).filter(Boolean)}}),this.readerTrip); this.readerOrigin='dashboard';this.readerIndex=0;this.go('reader'); } catch(error){this.notify(this.errorMessage(error))} }
   openPublicReader(){if(!this.selectedPublicTrip)return;const sourceDays=this.selectedPublicTrip.days??[];const allPhotos=(this.selectedPublicTrip.photos??[]).filter(Boolean);const legacyBuckets=sourceDays.map((_:any,index:number)=>allPhotos.filter((_:string,photoIndex:number)=>photoIndex%Math.max(sourceDays.length,1)===index));const days=sourceDays.map((day:any,index:number)=>({...day,layout:'scrapbook',photos:(this.selectedPublicTrip.photoDays?.[day.date]??legacyBuckets[index]??[]).filter(Boolean),events:day.events??[]}));this.readerTrip={...this.selectedPublicTrip.trip,author:this.selectedPublicTrip.author.firstname||this.selectedPublicTrip.author.username,design:'scrapbook',stats:this.selectedPublicTrip.stats};this.readerPages=this.buildReaderPages(days,this.readerTrip);this.readerOrigin='public-trip';this.readerIndex=0;this.go('reader')}
   private buildReaderPages(days:any[],trip:any){
@@ -202,21 +239,24 @@ export class AppComponent implements OnInit {
     try { const currentUser = await this.requireUser(); await this.supabase.saveProfile(currentUser.id, { username: this.user.username, firstname: this.user.firstname, bio: this.user.bio }); this.user.avatar = (this.user.firstname || 'V').charAt(0).toUpperCase(); this.notify('Profil mis à jour'); }
     catch (error) { this.notify(this.errorMessage(error)); }
   }
-  async logout() { try { await this.supabase.signOut(); } catch {} this.screen = 'splash'; this.selectedTrip = null; this.trips = []; this.notify('À bientôt, belle exploratrice !'); }
+  async logout() { if(this.communityPollTimer){clearInterval(this.communityPollTimer);this.communityPollTimer=undefined}try { await this.supabase.signOut(); } catch {} this.screen = 'splash'; this.selectedTrip = null; this.trips = []; this.inboxList=[];this.friendRequests=[];this.unreadMessageCount=0;this.pendingFriendCount=0;this.notify('À bientôt, belle exploratrice !'); }
   private notify(message: string) { this.toast = message; setTimeout(() => this.toast = '', 2800); }
   formatDate(date: string) { return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(date + 'T12:00:00')); }
   formatMoney(value: number | null, currency: string) { return value == null ? 'À définir' : new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value); }
 
   private async loadAccount(userId: string, email: string) {
     try {
+      this.userId=userId;
       const [profile, traveler, trips] = await Promise.all([this.supabase.profile(userId), this.supabase.travelerProfile(userId), this.supabase.trips(userId)]);
       this.user = { email, username: profile.username, firstname: profile.firstname, bio: profile.bio ?? '', avatar: (profile.firstname || 'V').charAt(0).toUpperCase() };
       if (traveler) this.questionnaire = { personality: traveler.personality ?? 'curieuse', anxiety: traveler.anxiety_level ?? 2, noise: traveler.noise_sensitivity ?? 2, crowd: traveler.crowd_sensitivity ?? 2, diet: (traveler.dietary_preferences ?? []).join(', '), allergies: (traveler.allergies ?? []).join(', '), mobility: traveler.mobility_preferences ?? '', notes: traveler.answers_json?.notes ?? '' };
       this.trips = trips.map(data => this.mapTrip(data)); this.go(traveler?.completed_at ? 'home' : 'questionnaire');
+      this.startCommunityPolling();
     } catch (error) { this.notify(this.errorMessage(error)); }
   }
   private mapTrip(data: any): Trip { return { id: data.id, title: data.title, country: data.country, startDate: data.start_date, endDate: data.end_date, currency: data.currency, budget: data.planned_budget == null ? null : Number(data.planned_budget), visibility: data.visibility, coverUrl:data.cover_url, days: (data.trip_days ?? []).sort((a: any, b: any) => a.day_number - b.day_number).map((day: any) => ({ id: day.id, date: day.day_date, label: `Jour ${day.day_number}`, note: day.notes ?? '' })) }; }
   private async requireUser() { const user = await this.supabase.currentUser(); if (!user) throw new Error('Ta session a expiré, reconnecte-toi.'); return user; }
   private toList(value: string) { return value.split(',').map(item => item.trim()).filter(Boolean); }
   private errorMessage(error: unknown) { return error instanceof Error ? error.message : 'Une erreur est survenue avec Supabase.'; }
+  private communityErrorMessage(error:unknown){const message=this.errorMessage(error);const errors:Record<string,string>={AUTH_REQUIRED:'Reconnecte-toi pour envoyer un message.',USER_NOT_FOUND:'Ce profil n’existe plus.',CANNOT_MESSAGE_SELF:'Tu ne peux pas t’écrire à toi-même.',USER_BLOCKED:'Cette interaction est impossible car un blocage est actif.',MESSAGES_DISABLED:'Cette personne n’accepte pas de nouveaux messages.',FOLLOW_REQUIRED:'Cette personne accepte uniquement les messages des voyageurs qu’elle suit.',FRIENDSHIP_REQUIRED:'Cette personne accepte uniquement les messages de ses amis.'};const code=Object.keys(errors).find(key=>message.includes(key));return code?errors[code]:message}
 }
