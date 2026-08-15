@@ -610,6 +610,7 @@
                 }
               }
             </div>
+            <div class="expense-history"><h4>Détail des dépenses <span>{{expenses.length}}</span></h4>@for(item of expenses;track item.id){<article><div><span>{{item.category || 'Autre'}} · {{item.expense_date | date:'dd MMM'}}</span><b>{{item.label}}</b>@if(item.currency !== selectedTrip.currency){<small>{{formatMoney(item.amount,item.currency)}} · converti</small>}</div><strong>{{formatMoney(item.converted_amount ?? item.amount,selectedTrip.currency)}}</strong><button (click)="editExpense(item)" aria-label="Modifier la dépense">Modifier</button></article>}@empty{<p class="mini-empty">Aucune dépense enregistrée.</p>}</div>
           </section>
           <section class="paper-card map-panel" [hidden]="tripTab !== 'map'">
             <div class="section-head">
@@ -967,7 +968,7 @@
             </div>
             <div class="paper-card expense-panel">
               <span class="eyebrow">Dépenses</span>
-              <h3>Ajouter une dépense</h3>
+              <h3>{{editingExpenseId ? 'Modifier la dépense' : 'Ajouter une dépense'}}</h3>
               <select [(ngModel)]="expense.category">
                 <option>Restauration</option>
                 <option>Café</option>
@@ -1000,10 +1001,11 @@
                     placeholder="Montant converti"
                 /></label>
               }
-              <button class="secondary wide" (click)="addExpense()">
-                ＋ Ajouter
+              <button class="secondary wide" [disabled]="expenseSaving" (click)="addExpense()">
+                {{expenseSaving ? 'Enregistrement…' : editingExpenseId ? 'Enregistrer les modifications' : '＋ Ajouter'}}
               </button>
             </div>
+              @if(editingExpenseId){<button class="text-link wide" [disabled]="expenseSaving" (click)="cancelExpenseEdit()">Annuler la modification</button>}
             <div class="privacy-note">
               🔒 Tes notes et brouillons restent privés tant que tu ne publies
               pas la journée.

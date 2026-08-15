@@ -205,8 +205,14 @@ export class SupabaseService {
   }
 
   async saveExpense(tripId: string, dayId: string, expense: { label: string; amount: number; currency: string; convertedAmount: number; convertedCurrency: string; category: string; date: string }) {
-    const { error } = await this.db.from('expenses').insert({ trip_id: tripId, trip_day_id: dayId, label: expense.label, description: expense.label, amount: expense.amount, converted_amount: expense.convertedAmount, currency: expense.currency, converted_currency: expense.convertedCurrency, category: expense.category, expense_date: expense.date });
+    const { data, error } = await this.db.from('expenses').insert({ trip_id: tripId, trip_day_id: dayId, label: expense.label, description: expense.label, amount: expense.amount, converted_amount: expense.convertedAmount, currency: expense.currency, converted_currency: expense.convertedCurrency, category: expense.category, expense_date: expense.date }).select().single();
     if (error) throw error;
+    return data;
+  }
+
+  async updateExpense(id:string,tripId:string,dayId:string,expense:{label:string;amount:number;currency:string;convertedAmount:number;convertedCurrency:string;category:string;date:string}){
+    const {data,error}=await this.db.from('expenses').update({trip_day_id:dayId,label:expense.label,description:expense.label,amount:expense.amount,converted_amount:expense.convertedAmount,currency:expense.currency,converted_currency:expense.convertedCurrency,category:expense.category,expense_date:expense.date}).eq('id',id).eq('trip_id',tripId).select().single();
+    if(error)throw error;return data;
   }
 
   async expenses(tripId: string) { const { data, error } = await this.db.from('expenses').select('*').eq('trip_id', tripId).order('expense_date'); if (error) throw error; return data ?? []; }
