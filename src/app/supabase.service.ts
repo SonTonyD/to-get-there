@@ -212,6 +212,42 @@ export class SupabaseService {
   async publishTrip(tripId: string, settings: Record<string, unknown>) { const { data, error } = await this.db.functions.invoke('publish-trip', { body: { tripId, settings } }); if (error) throw error; return data.slug as string; }
   async explorePublicTrips() { const { data, error } = await this.db.from('trip_publications').select('slug,snapshot,published_at').order('published_at', { ascending: false }); if (error) throw error; return data ?? []; }
 
+  async searchTravelBase(filters: Record<string, unknown>) {
+    const { data, error } = await this.db.rpc('search_travel_base', {
+      search_query: filters['query'] || null, search_month: filters['month'] || null,
+      min_duration: filters['minDuration'] || null, max_duration: filters['maxDuration'] || null,
+      max_budget: filters['maxBudget'] || null, trip_kind: filters['tripType'] || null,
+      place_category: filters['category'] || null, recommended_only: filters['recommendedOnly'] || false,
+      recent_only: filters['recentOnly'] || false
+    });
+    if (error) throw error;
+    return data ?? { trips: [], destinations: [], places: [], parsed: {} };
+  }
+
+  async destinationDetails(destinationId: string) {
+    const { data, error } = await this.db.rpc('destination_details', { target_destination: destinationId });
+    if (error) throw error;
+    return data;
+  }
+
+  async placeDetails(placeId: string) {
+    const { data, error } = await this.db.rpc('community_place_details', { target_place: placeId });
+    if (error) throw error;
+    return data;
+  }
+
+  async saveTripAdvice(advice: Record<string, unknown>) {
+    const me = await this.currentUser(); if (!me) throw new Error('Non connectÃ©');
+    const { error } = await this.db.from('trip_advice').upsert({ author_id: me.id, ...advice }, { onConflict: 'trip_id,destination_id' });
+    if (error) throw error;
+  }
+
+  async saveBudgetSharing(tripId: string, showExactBudget: boolean, allowAnonymousStatistics: boolean) {
+    const { error } = await this.db.from('budget_sharing_preferences').upsert({ trip_id: tripId, show_exact_budget: showExactBudget, allow_anonymous_statistics: allowAnonymousStatistics });
+    if (error) throw error;
+  }
+  async saveTripFeedback(tripId:string,feedback:Record<string,unknown>){const{error}=await this.db.rpc('save_trip_feedback',{target_trip:tripId,destination_recommendation:feedback['recommendDestination'],period_recommendation:feedback['recommendPeriod'],duration_recommendation:feedback['recommendedDuration'],advice_body:feedback['adviceText'],publish_advice:feedback['publishAdvice'],show_budget:feedback['showExactBudget'],anonymous_budget:feedback['allowAnonymousStatistics']});if(error)throw error;}
+
   async tripReader(tripId: string) {
     const { data, error } = await this.db.from('trip_days')
       .select('id,day_date,day_number,notes,day_journals(*,journal_events(*)),trip_media(*)')

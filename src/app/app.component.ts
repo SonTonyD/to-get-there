@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { SupabaseService } from './supabase.service';
 import * as L from 'leaflet';
 
-type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'journal' | 'explore' | 'public-trip' | 'public-profile' | 'inspirations' | 'inbox' | 'conversation' | 'community-settings' | 'reader' | 'profile';
+type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'journal' | 'explore' | 'destination' | 'place' | 'public-trip' | 'public-profile' | 'inspirations' | 'inbox' | 'conversation' | 'community-settings' | 'reader' | 'profile';
 type AuthMode = 'login' | 'signup' | 'forgot';
 type TripTab = 'journal' | 'map' | 'budget' | 'settings';
 type JournalStep = 1 | 2 | 3 | 4;
@@ -44,6 +44,10 @@ export class AppComponent implements OnInit, OnDestroy {
   expenses: any[] = []; placeVisits: any[] = []; tripStats: any = null;
   publication = { photos: true, story: true, recommendations: true, budget: false, design: 'scrapbook' };
   exploreSearch = ''; exploreDuration='all';exploreSeason='all';exploreType='all'; publicTrips: any[] = []; selectedPublicTrip: any = null;
+  searchFilters={month:0,minDuration:null as number|null,maxDuration:null as number|null,maxBudget:null as number|null,tripType:'',category:'',recommendedOnly:false,recentOnly:false};
+  searchResults:any={trips:[],destinations:[],places:[],parsed:{}};searchPerformed=false;destination:any=null;selectedPlace:any=null;
+  tripFeedback={recommendDestination:'yes',recommendPeriod:true,recommendedDuration:null as number|null,adviceText:'',publishAdvice:false,showExactBudget:false,allowAnonymousStatistics:false};
+  readonly months=['Tous les mois','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   readerPages: any[] = []; readerIndex = 0; readerOrigin: Screen = 'dashboard'; readerTrip: any = null;
   readerTocOpen=false;readerFullscreen=false;readerLightbox='';private readerTouchX=0;
   tripsLoading=false;exploreLoading=false;commentsLoading=false;inboxLoading=false;conversationLoading=false;messageSending=false;commentSending=false;
@@ -183,18 +187,25 @@ export class AppComponent implements OnInit, OnDestroy {
   categoryTotal(category:string){return this.expenses.filter(e=>e.category===category).reduce((sum,e)=>sum+Number(e.converted_amount??e.amount),0)}
   async completeTrip(){if(!this.selectedTrip)return;try{this.tripStats=await this.supabase.finishTrip(this.selectedTrip.id);this.notify('Voyage terminé · ta page en chiffres est prête !')}catch(error){this.notify(this.errorMessage(error))}}
   async publishTrip(){if(!this.selectedTrip)return;try{const slug=await this.supabase.publishTrip(this.selectedTrip.id,this.publication);this.notify(`Voyage publié : ${slug}`)}catch(error){this.notify(this.errorMessage(error))}}
-  async openExplore(){this.go('explore');this.exploreLoading=true;this.clearActionError('explore');try{this.publicTrips=await this.supabase.explorePublicTrips();await Promise.all(this.publicTrips.map(async item=>{const id=item.snapshot?.trip?.id;if(id)Object.assign(item.snapshot,await this.supabase.tripEngagement(id))}))}catch(error){this.setActionError('explore',this.errorMessage(error),()=>this.openExplore())}finally{this.exploreLoading=false}}
+  async submitTripFeedback(){if(!this.selectedTrip)return;try{await this.supabase.saveTripFeedback(this.selectedTrip.id,this.tripFeedback);this.notify('Merci, ton expérience aidera les prochains voyageurs.')}catch(error){this.notify(this.errorMessage(error))}}
+  async openExplore(){this.go('explore');this.exploreLoading=true;this.clearActionError('explore');try{this.publicTrips=await this.supabase.explorePublicTrips();await this.runTravelSearch(false);await Promise.all(this.publicTrips.map(async item=>{const id=item.snapshot?.trip?.id;if(id)Object.assign(item.snapshot,await this.supabase.tripEngagement(id))}))}catch(error){this.setActionError('explore',this.errorMessage(error),()=>this.openExplore())}finally{this.exploreLoading=false}}
+  async runTravelSearch(mark=true){if(mark)this.searchPerformed=true;try{this.searchResults=await this.supabase.searchTravelBase({query:this.exploreSearch,...this.searchFilters})}catch(error){if(mark)this.setActionError('explore',this.errorMessage(error),()=>this.runTravelSearch())}}
+  clearTravelFilters(){this.exploreSearch='';this.searchFilters={month:0,minDuration:null,maxDuration:null,maxBudget:null,tripType:'',category:'',recommendedOnly:false,recentOnly:false};void this.runTravelSearch()}
+  async openDestination(item:any){this.exploreLoading=true;try{this.destination=await this.supabase.destinationDetails(item.id);this.go('destination')}catch(error){this.notify(this.errorMessage(error))}finally{this.exploreLoading=false}}
+  async openPlace(item:any){this.exploreLoading=true;try{this.selectedPlace=await this.supabase.placeDetails(item.id);this.go('place')}catch(error){this.notify(this.errorMessage(error))}finally{this.exploreLoading=false}}
+  monthBar(value:number,total:number){return Math.max(3,Math.round((Number(value||0)/Math.max(1,total))*100))}
+  searchTripPublication(tripId:string){return this.publicTrips.find(item=>item.snapshot?.trip?.id===tripId)}
   tripDuration(item:any){return Number(item.snapshot?.stats?.days??item.snapshot?.days?.length??0)}
   tripSeason(item:any){const month=new Date(item.snapshot?.trip?.startDate??'').getMonth()+1;return[12,1,2].includes(month)?'winter':[3,4,5].includes(month)?'spring':[6,7,8].includes(month)?'summer':'autumn'}
   tripType(item:any){const cities=new Set((item.snapshot?.places??[]).map((place:any)=>place.city).filter(Boolean)).size;return cities>=3?'roadtrip':this.tripDuration(item)<=5?'city':'slow'}
   tripCities(item:any){return[...new Set((item.snapshot?.places??[]).map((place:any)=>place.city).filter(Boolean))].slice(0,3) as string[]}
   recommendationCount(item:any){return(item.snapshot?.places??[]).filter((place:any)=>place.recommended).length}
-  get filteredPublicTrips(){const q=this.exploreSearch.trim().toLowerCase();return this.publicTrips.filter(item=>{const duration=this.tripDuration(item);return(!q||item.snapshot?.trip?.country?.toLowerCase().includes(q)||item.snapshot?.trip?.title?.toLowerCase().includes(q)||item.snapshot?.places?.some((p:any)=>p.city?.toLowerCase().includes(q)))&&(this.exploreDuration==='all'||this.exploreDuration==='short'&&duration<=5||this.exploreDuration==='medium'&&duration>=6&&duration<=14||this.exploreDuration==='long'&&duration>=15)&&(this.exploreSeason==='all'||this.tripSeason(item)===this.exploreSeason)&&(this.exploreType==='all'||this.tripType(item)===this.exploreType)})}
+  get filteredPublicTrips(){if(this.searchPerformed){const ids=new Set((this.searchResults.trips??[]).map((trip:any)=>trip.trip_id));return this.publicTrips.filter(item=>ids.has(item.snapshot?.trip?.id))}const q=this.exploreSearch.trim().toLowerCase();return this.publicTrips.filter(item=>!q||item.snapshot?.trip?.country?.toLowerCase().includes(q)||item.snapshot?.trip?.title?.toLowerCase().includes(q)||item.snapshot?.places?.some((p:any)=>p.city?.toLowerCase().includes(q)))}
   async toggleExploreSave(event:Event,item:any){event.stopPropagation();const tripId=item.snapshot?.trip?.id;if(!tripId)return;try{await this.supabase.toggleSaveTrip(tripId,!!item.snapshot.saved);item.snapshot.saved=!item.snapshot.saved;this.notify(item.snapshot.saved?'Voyage enregistré':'Voyage retiré des inspirations')}catch(error){this.notify(this.errorMessage(error))}}
   get publicAuthorTrips(){const id=this.selectedPublicTrip?.author?.id;return this.publicTrips.filter(item=>item.snapshot?.author?.id===id)}
   get publicAuthorCountries(){return [...new Set(this.publicAuthorTrips.map(item=>item.snapshot.trip.country))]}
   exploreCountry(country:string){this.exploreSearch=country;this.openExplore()}
-  async openPublicTrip(item:any){this.selectedPublicTrip=item.snapshot;this.go('public-trip');await this.loadPublicInteractions()}
+  async openPublicTrip(item:any){if(!item?.snapshot){this.notify('Ce carnet n’est plus disponible.');return}this.selectedPublicTrip=item.snapshot;this.go('public-trip');await this.loadPublicInteractions()}
   async loadPublicInteractions(){
     const tripId=this.selectedPublicTrip?.trip?.id;
     if(!tripId)return;

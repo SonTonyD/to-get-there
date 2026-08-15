@@ -651,6 +651,7 @@
               </div>
             }
           </div>
+          @if (tripStats) {<div class="trip-feedback"><h4>Ce que tu conseillerais</h4><label>Cette destination ?<select [(ngModel)]="tripFeedback.recommendDestination"><option value="yes">Oui</option><option value="mixed">Mitigé</option><option value="no">Non</option></select></label><label><input type="checkbox" [(ngModel)]="tripFeedback.recommendPeriod"> Je recommande cette période</label><label>Durée conseillée<input type="number" min="1" [(ngModel)]="tripFeedback.recommendedDuration" placeholder="Nombre de jours"></label><label>Ce que j’aurais aimé savoir<textarea [(ngModel)]="tripFeedback.adviceText" placeholder="Ton conseil, avec tes propres mots…"></textarea></label><label><input type="checkbox" [(ngModel)]="tripFeedback.publishAdvice"> Publier ce conseil</label><label><input type="checkbox" [(ngModel)]="tripFeedback.showExactBudget"> Afficher mon budget exact</label><label><input type="checkbox" [(ngModel)]="tripFeedback.allowAnonymousStatistics"> Utiliser mon budget dans les statistiques anonymes</label><button class="secondary" (click)="submitTripFeedback()">Enregistrer mon retour</button></div>}
           <div class="publish-controls">
             <button class="secondary" (click)="completeTrip()">
               Terminer le voyage
@@ -1025,15 +1026,35 @@
             ⌕
             <input
               [(ngModel)]="exploreSearch"
-              placeholder="Rechercher un pays ou une ville"
+              (keyup.enter)="runTravelSearch()"
+              placeholder="Japon décembre, ramen Osaka…"
             />
+            <button (click)="runTravelSearch()">Rechercher</button>
           </div>
-          <div class="explore-filters">
+          <div class="smart-filters">
+            <label>Mois<select [(ngModel)]="searchFilters.month"><option [ngValue]="0">Toute l’année</option>@for(month of months.slice(1);track month){<option [ngValue]="$index+1">{{month}}</option>}</select></label>
+            <label>Durée min<input type="number" min="1" [(ngModel)]="searchFilters.minDuration" placeholder="10 jours"></label>
+            <label>Durée max<input type="number" min="1" [(ngModel)]="searchFilters.maxDuration" placeholder="15 jours"></label>
+            <label>Budget max<input type="number" min="0" [(ngModel)]="searchFilters.maxBudget" placeholder="2 000 €"></label>
+            <label>Type<select [(ngModel)]="searchFilters.tripType"><option value="">Tous</option><option value="city">City break</option><option value="roadtrip">Itinérant</option><option value="slow">Voyage lent</option></select></label>
+            <label>Catégorie<select [(ngModel)]="searchFilters.category"><option value="">Toutes</option><option value="restaurant">Restaurants</option><option value="cafe">Cafés</option><option value="activity">Activités</option><option value="accommodation">Hébergements</option></select></label>
+            <label class="check-filter"><input type="checkbox" [(ngModel)]="searchFilters.recommendedOnly"> Recommandés seulement</label>
+            <label class="check-filter"><input type="checkbox" [(ngModel)]="searchFilters.recentOnly"> Carnets récents</label>
+            <button class="text-link" (click)="clearTravelFilters()">Effacer</button>
+          </div>
+          <div class="legacy-filters" hidden>
             <label>Durée<select [(ngModel)]="exploreDuration"><option value="all">Toutes</option><option value="short">1 à 5 jours</option><option value="medium">6 à 14 jours</option><option value="long">15 jours et plus</option></select></label>
             <label>Saison<select [(ngModel)]="exploreSeason"><option value="all">Toutes</option><option value="spring">Printemps</option><option value="summer">Été</option><option value="autumn">Automne</option><option value="winter">Hiver</option></select></label>
             <label>Type<select [(ngModel)]="exploreType"><option value="all">Tous</option><option value="city">City break</option><option value="roadtrip">Itinérant</option><option value="slow">Voyage lent</option></select></label>
           </div>
         </div>
+        @if (searchPerformed || exploreSearch || searchFilters.month) {
+          <section class="search-overview">
+            <div class="result-summary"><b>{{searchResults.trips?.length || 0}}</b> voyages · <b>{{searchResults.destinations?.length || 0}}</b> destinations · <b>{{searchResults.places?.length || 0}}</b> lieux</div>
+            @if(searchResults.destinations?.length){<div class="entity-strip">@for(item of searchResults.destinations;track item.id){<button class="entity-card" (click)="openDestination(item)"><span>{{item.type === 'country' ? '🌍' : '⌖'}}</span><b>{{item.city_name || item.country_name}}</b><small>{{item.public_trip_count}} carnets · {{item.recommended_place_count}} bonnes adresses</small></button>}</div>}
+            @if(searchResults.places?.length){<div class="place-results"><h3>Lieux trouvés</h3>@for(item of searchResults.places;track item.id){<button (click)="openPlace(item)"><span>{{item.category === 'restaurant' ? '🍜' : item.category === 'cafe' ? '☕' : '✦'}}</span><div><b>{{item.name}}</b><small>{{item.city}} · {{item.recommendation_count}} recommandations</small></div><i>{{item.recommendation_rate || 0}}%</i></button>}</div>}
+          </section>
+        }
         <div class="section-head">
           <div>
             <span class="eyebrow">La bibliothèque des ailleurs</span>
@@ -1080,6 +1101,20 @@
         </div>
       </section>
     }
+
+    @if (screen === "destination" && destination) {
+      <section class="page destination-page"><button class="back" (click)="go('explore')">← Recherche</button>
+        <header class="destination-hero"><span>{{destination.destination.type === 'country' ? '🌍 Destination' : '⌖ Ville'}}</span><h1>{{destination.destination.city_name || destination.destination.country_name}}</h1><p>{{destination.stats.public_trip_count}} carnets publics · durée moyenne {{destination.stats.average_duration || '—'}} jours</p></header>
+        <div class="destination-grid"><section class="paper-card"><h3>Quand les voyageurs y vont</h3><div class="month-chart">@for(month of months.slice(1);track month){<div><span>{{month.slice(0,3)}}</span><i><b [style.height.%]="monthBar(destination.stats.month_distribution?.[$index+1],destination.stats.public_trip_count)"></b></i><small>{{destination.stats.month_distribution?.[$index+1] || 0}}</small></div>}</div></section>
+        <section class="paper-card stat-callout"><span>Budget communautaire</span><b>{{destination.stats.public_budget_average ? (destination.stats.public_budget_average | currency:'EUR':'symbol':'1.0-0':'fr') : 'Non disponible'}}</b><small>Uniquement les budgets partagés anonymement</small></section></div>
+        @if(destination.routes?.length){<div class="section-head"><div><span class="eyebrow">Itinéraires observés</span><h3>Chemins empruntés</h3></div></div><div class="route-list">@for(route of destination.routes;track route.route){<span>{{route.route}} <small>{{route.trip_count}} voyage(s)</small></span>}</div>}
+        @if(destination.places?.length){<div class="section-head"><div><span class="eyebrow">Adresses de la communauté</span><h3>Lieux recommandés</h3></div></div><div class="place-results">@for(place of destination.places;track place.id){<button (click)="openPlace(place)"><span>{{place.category === 'restaurant' ? '🍜' : place.category === 'cafe' ? '☕' : '✦'}}</span><div><b>{{place.name}}</b><small>{{place.visit_count}} visites · {{place.recommendation_count}} recommandations</small></div><i>→</i></button>}</div>}
+        @if(destination.advice?.length){<div class="section-head"><div><span class="eyebrow">À savoir avant de partir</span><h3>Conseils voyageurs</h3></div></div><div class="advice-grid">@for(advice of destination.advice;track advice.id){<blockquote><p>“{{advice.advice_text}}”</p><small>{{advice.recommend_destination === 'yes' ? '♥ Destination recommandée' : 'Avis mitigé'}} · {{advice.recommended_duration}} jours conseillés</small></blockquote>}</div>}
+        <div class="section-head"><div><span class="eyebrow">Les sources</span><h3>Carnets derrière ces données</h3></div></div><div class="source-trips">@for(trip of destination.trips;track trip.trip_id){<button (click)="openPublicTrip(searchTripPublication(trip.trip_id))"><b>{{trip.title}}</b><small>{{trip.duration_days}} jours · {{months[trip.start_month]}}</small></button>}</div>
+      </section>
+    }
+
+    @if (screen === "place" && selectedPlace) {<section class="page place-page"><button class="back" (click)="go('explore')">← Recherche</button><div class="place-detail paper-card"><span class="eyebrow">{{selectedPlace.place.category}} · {{selectedPlace.place.city}}</span><h1>{{selectedPlace.place.name}}</h1><div class="place-score"><b>{{selectedPlace.stats.recommendation_rate || 0}}%</b><span>recommandé par la communauté</span></div><div class="place-numbers"><span><b>{{selectedPlace.stats.visit_count}}</b> visites</span><span><b>{{selectedPlace.stats.like_count}}</b> coups de cœur</span><span><b>{{selectedPlace.stats.non_recommendation_count}}</b> avis négatifs</span></div></div><div class="section-head"><div><span class="eyebrow">Expériences réelles</span><h3>Voyages où ce lieu apparaît</h3></div></div><div class="source-trips">@for(trip of selectedPlace.trips;track trip.trip_id){<button (click)="openPublicTrip(searchTripPublication(trip.trip_id))"><b>{{trip.title}}</b><small>{{trip.country_name}} · {{months[trip.start_month]}}</small></button>}</div></section>}
 
     @if (screen === "public-trip" && selectedPublicTrip) {
       <section class="page public-trip-page" [class.scrapbook-public]="selectedPublicTrip.design === 'scrapbook'" [class.atlas-public]="selectedPublicTrip.design === 'atlas'">
