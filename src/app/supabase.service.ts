@@ -17,9 +17,13 @@ export class SupabaseService {
 
   async currentUser(): Promise<User | null> {
     if (!this.client) return null;
+    // getUser() seul contacte l'API Auth et produit une erreur visible lorsqu'il
+    // n'existe aucune session locale. On vérifie d'abord la session pour que le
+    // parcours visiteur reste un cas normal, sans requête Supabase en échec.
+    const { data: sessionData, error: sessionError } = await this.client.auth.getSession();
+    if (sessionError || !sessionData.session) return null;
     const { data, error } = await this.client.auth.getUser();
-    if (error) return null;
-    return data.user;
+    return error ? null : data.user;
   }
 
   async signUp(email: string, password: string, firstname: string, username: string) {

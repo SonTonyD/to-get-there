@@ -68,13 +68,15 @@ export class AppComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     if (!this.supabase.configured) return;
-    const currentUser = await this.supabase.currentUser();
-    if (currentUser) await this.loadAccount(currentUser.id, currentUser.email ?? '');
+    try {
+      const currentUser = await this.supabase.currentUser();
+      if (currentUser) await this.loadAccount(currentUser.id, currentUser.email ?? '');
+    } catch { /* Une indisponibilité Supabase ne doit pas casser l'accueil public. */ }
   }
 
   ngOnDestroy(){if(this.communityPollTimer)clearInterval(this.communityPollTimer)}
 
-  go(screen: Screen) { this.screen = screen; this.menuOpen = false; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  go(screen: Screen) { const privateScreens:Screen[]=['trips','new-trip','dashboard','journal','profile','inspirations','inbox','conversation','community-settings'];if(!this.userId&&privateScreens.includes(screen)){this.authMode='login';this.screen='auth'}else this.screen=screen;this.menuOpen=false;window.scrollTo({ top: 0, behavior: 'smooth' }); }
   start() { this.go('auth'); }
   async submitAuth() {
     if (!this.supabase.configured) { this.notify('Ajoute d’abord tes clés Supabase dans environment.ts'); return; }
