@@ -1,0 +1,29 @@
+@if(page){
+  <section class="book-reader" [ngClass]="designClasses.concat('reader-' + (page.layout || trip?.design || 'editorial'))" [ngStyle]="designStyles" (touchstart)="touchStart($event)" (touchend)="touchEnd($event)">
+    <header class="reader-bar"><button (click)="closeRequested.emit()">✕ Fermer</button><div><span>{{trip?.title}}</span><i [style.width.%]="((index + 1) / pages.length) * 100"></i></div><div class="reader-tools"><button (click)="tocOpen=!tocOpen" aria-label="Sommaire">☰</button><button (click)="toggleFullscreen()" aria-label="Plein écran">⛶</button><span>{{index + 1}} / {{pages.length}}</span></div></header>
+    @if(tocOpen){<aside class="reader-toc"><header><span>Sommaire</span><button (click)="tocOpen=false">×</button></header>@for(item of pages;track $index){<button [class.active]="$index===index" (click)="goTo($index)"><b>{{item.kind==='cover'?'✦':item.kind==='timeline'?'⌁':item.kind==='end'?'∞':item.number}}</b><span>{{item.kind==='cover'?'Couverture':item.kind==='timeline'?'Le voyage en un regard':item.title}}</span></button>}</aside>}
+    <div class="reader-stage">
+      <button class="reader-arrow previous" [disabled]="index===0" (click)="previous()" aria-label="Page précédente">←</button>
+      <article class="reader-sheet" [class.cover-sheet]="page.kind==='cover'" [class.end-sheet]="page.kind==='end'">
+        @if(page.kind==='cover'){
+          @if(page.photo){<img class="reader-cover-image" [src]="page.photo" alt="Couverture du voyage">}
+          <div class="reader-cover-copy"><span>Carnet de voyage</span><h1>{{page.title}}</h1><p>{{page.country}}</p><small>Une histoire de {{page.author}}</small></div><div class="reader-cover-stamp">Bon<br>voyage</div>
+        }@else if(page.kind==='timeline'){
+          <div class="reader-timeline-page"><span class="timeline-kicker">Le voyage, d’un seul regard</span><h1>{{page.title}}</h1><p>{{page.country}} · le fil de nos souvenirs</p><div class="trip-thread">@for(day of page.days;track (day.id||day.date||'day')+'-'+$index){<article><b>{{day.number|number:'2.0'}}</b><div><time>{{formatDate(day.date)}}</time><h3>{{day.title}}</h3><p>{{day.summary}}</p></div></article>}</div><div class="timeline-flight">✈ 〰 〰 〰 ✦</div></div>
+        }@else if(page.kind==='day'){
+          <div class="reader-day-head"><span>Jour {{page.number|number:'2.0'}}</span><small>{{formatDate(page.date)}}</small><h1>{{page.title||'Une journée à raconter'}}</h1></div>
+          @if(page.photos?.length){<div class="reader-photo-story" [class.single-photo]="page.photos.length===1" [class.two-photos]="page.photos.length===2"><figure><img class="reader-main-photo" [src]="page.photos[0]" alt="Souvenir de la journée" (click)="lightbox=page.photos[0]"><figcaption>{{page.events?.[0]?.place||'Souvenir du jour'}}</figcaption></figure>@for(photo of page.photos.slice(1,3);track $index){<figure><img [src]="photo" alt="Souvenir de la journée" (click)="lightbox=photo"><figcaption>{{page.events?.[$index+1]?.place||''}}</figcaption></figure>}</div>}@else{<div class="reader-no-photo"><span>✦</span><div>Une journée vécue<br><b>au-delà de l’objectif</b></div><small>{{page.date|date:'dd · MM · yyyy'}}</small></div>}
+          <p class="reader-summary">{{page.summary}}</p>
+          <div class="reader-events">@for(event of page.events;track (event.id||event.order||event.event_order||'event')+'-'+$index){<section><time>{{event.time?event.time.slice(0,5):'✦'}}</time><div><h3>{{event.title}}</h3><p>{{event.description}}</p>@if(event.place){<small>⌖ {{event.place}}</small>}</div></section>}</div>
+          <div class="reader-page-number">— {{page.number}} —</div><button class="reader-share-day" (click)="shareDay()">↗ Partager cette journée</button>
+        }@else{
+          <div class="reader-end-copy"><span>Le voyage en quelques éclats</span><h1>{{page.title}}</h1><div class="reader-numbers"><div><b>{{page.stats.days||'—'}}</b><small>jours</small></div><div><b>{{page.stats.cities||'—'}}</b><small>villes</small></div><div><b>{{page.stats.places||'—'}}</b><small>lieux</small></div><div><b>{{page.stats.photos||'—'}}</b><small>photos</small></div></div><p>Les plus beaux voyages continuent longtemps après le retour.</p><i>✦</i></div>
+        }
+      </article>
+      <button class="reader-arrow next" [disabled]="index===pages.length-1" (click)="next()" aria-label="Page suivante">→</button>
+    </div>
+    <div class="reader-page-dots">@for(item of pages;track $index){<button [class.active]="$index===index" (click)="goTo($index)" [attr.aria-label]="'Page '+($index+1)"></button>}</div>
+    <nav class="reader-mobile-nav"><button [disabled]="index===0" (click)="previous()">← Précédent</button><button [disabled]="index===pages.length-1" (click)="next()">Suivant →</button></nav>
+    @if(lightbox){<div class="reader-lightbox" (click)="lightbox=''"><button aria-label="Fermer">×</button><img [src]="lightbox" alt="Photo agrandie"></div>}
+  </section>
+}

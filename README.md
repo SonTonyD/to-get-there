@@ -36,6 +36,31 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Navigation et liens profonds
+
+Les écrans principaux disposent maintenant d’URL stables :
+
+- `/trips/:tripId` et `/trips/:tripId/days/:dayId`
+- `/explore` et `/travel/:slug`
+- `/profile/:username`
+- `/messages/:conversationId`
+- `/video/:projectId`
+
+Les pages privées conservent leur destination pendant la connexion. Le lecteur expose également la page courante dans l’URL afin de pouvoir partager une journée précise.
+
+Le shell principal charge désormais à la demande les domaines autonomes suivants :
+
+- `features/reader` pour la lecture, le plein écran, le balayage et le partage ;
+- `features/messaging` pour la boîte de réception, les conversations et leurs paramètres.
+
+Ces composants utilisent des blocs Angular `@defer` : leur code et leurs styles ne sont téléchargés que lors de la première ouverture du domaine concerné.
+
+En production, l’hébergeur doit appliquer une règle SPA qui renvoie `index.html` pour toute URL ne correspondant pas à un fichier statique. Sans ce fallback, l’ouverture ou le rechargement direct d’un lien profond peut produire une 404 côté serveur. Exemples :
+
+- Netlify ou Render Static Site : `/* /index.html 200` dans `_redirects` ;
+- Vercel : une rewrite de `/(.*)` vers `/index.html` ;
+- Nginx : `try_files $uri $uri/ /index.html`.
+
 ## Film souvenir
 
 Le studio Angular est relié à Supabase par la migration `supabase/migrations/20260816_video_memories_mvp.sql` et deux Edge Functions :

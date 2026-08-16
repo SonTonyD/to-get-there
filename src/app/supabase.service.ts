@@ -229,6 +229,18 @@ export class SupabaseService {
     return { ...data, export_url: exportUrl, scenes: (data.video_scenes ?? []).sort((a: any, b: any) => a.position - b.position) };
   }
 
+  async videoProject(projectId: string) {
+    const { data, error } = await this.db.from('video_projects').select('*, video_scenes(*)').eq('id', projectId).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    let exportUrl: string | undefined;
+    if (data.latest_export_path) {
+      const { data: signed } = await this.db.storage.from('video-renders').createSignedUrl(data.latest_export_path, 3600);
+      exportUrl = signed?.signedUrl;
+    }
+    return { ...data, export_url: exportUrl, scenes: (data.video_scenes ?? []).sort((a: any, b: any) => a.position - b.position) };
+  }
+
   async generateVideoStoryboard(payload: Record<string, unknown>) {
     const { data, error } = await this.db.functions.invoke('generate-video-storyboard', { body: payload });
     if (error) throw error;
@@ -281,6 +293,7 @@ export class SupabaseService {
   async finishTrip(tripId: string) { const { data, error } = await this.db.rpc('finish_trip', { target_trip: tripId }); if (error) throw error; return data; }
   async publishTrip(tripId: string, settings: Record<string, unknown>) { const { data, error } = await this.db.functions.invoke('publish-trip', { body: { tripId, settings } }); if (error) throw error; return data.slug as string; }
   async explorePublicTrips() { const { data, error } = await this.db.from('trip_publications').select('slug,snapshot,published_at').order('published_at', { ascending: false }); if (error) throw error; return data ?? []; }
+  async publicTrip(slug:string){const{data,error}=await this.db.from('trip_publications').select('slug,snapshot,published_at').eq('slug',slug).maybeSingle();if(error)throw error;return data;}
 
   async searchTravelBase(filters: Record<string, unknown>) {
     const { data, error } = await this.db.rpc('search_travel_base', {
@@ -341,6 +354,7 @@ export class SupabaseService {
       this.db.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
     ]); if (error) throw error; return { profile, publications: publications ?? [], countries: (countries ?? []).map(c => c.country), followers: followers ?? 0, following: following ?? 0 };
   }
+  async profileIdByUsername(username:string){const{data,error}=await this.db.from('profiles').select('id').eq('username',username).maybeSingle();if(error)throw error;return data?.id as string|undefined;}
   async relationship(userId: string) { const me=await this.currentUser(); if(!me)return{}; const [{data:follow},{data:friendship},{data:block}]=await Promise.all([this.db.from('follows').select('id').eq('follower_id',me.id).eq('followed_id',userId).maybeSingle(),this.db.from('friendships').select('*').or(`and(requester_id.eq.${me.id},recipient_id.eq.${userId}),and(requester_id.eq.${userId},recipient_id.eq.${me.id})`).maybeSingle(),this.db.from('user_blocks').select('id').eq('blocker_id',me.id).eq('blocked_id',userId).maybeSingle()]);return{following:!!follow,friendship,blocked:!!block}; }
   async toggleFollow(userId:string,active:boolean){const me=await this.currentUser();if(!me)throw new Error('Non connecté');const query=this.db.from('follows');const{error}=active?await query.delete().eq('follower_id',me.id).eq('followed_id',userId):await query.insert({follower_id:me.id,followed_id:userId});if(error)throw error;}
   async requestFriend(userId:string){const me=await this.currentUser();if(!me)throw new Error('Non connecté');const{error}=await this.db.from('friendships').insert({requester_id:me.id,recipient_id:userId});if(error)throw error;}
