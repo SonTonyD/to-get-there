@@ -440,9 +440,10 @@
           <div class="info-note">
             ✨ Les journées seront créées automatiquement entre tes dates.
           </div>
-          <button class="primary wide large" (click)="createTrip()">
-            Créer mon voyage →
+          <button class="primary wide large" [class.button-loading]="creatingTrip" [disabled]="creatingTrip" (click)="createTrip()">
+            <i></i>{{ creatingTrip ? 'Création du voyage…' : 'Créer mon voyage →' }}
           </button>
+          @if (actionError?.scope === 'create-trip') { <div class="inline-feedback error"><span>Le voyage n’a pas pu être créé.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Réessayer</button></div> }
         </div>
       </section>
     }
@@ -458,7 +459,7 @@
                 : "✦ Voyage public"
             }}</span>
             <h2>{{ selectedTrip.title }}</h2>
-            <button class="hero-read-button" (click)="openOwnerReader()">◉ Lire le carnet</button>
+            <button class="hero-read-button" [class.button-loading]="openingReader" [disabled]="openingReader" (click)="openOwnerReader()"><i></i>{{ openingReader ? 'Préparation du carnet…' : '◉ Lire le carnet' }}</button>
             <p>
               📍 {{ selectedTrip.country }}　·　{{
                 formatDate(selectedTrip.startDate)
@@ -654,9 +655,10 @@
           </div>
           @if (tripStats) {<div class="trip-feedback"><h4>Ce que tu conseillerais</h4><label>Cette destination ?<select [(ngModel)]="tripFeedback.recommendDestination"><option value="yes">Oui</option><option value="mixed">Mitigé</option><option value="no">Non</option></select></label><label><input type="checkbox" [(ngModel)]="tripFeedback.recommendPeriod"> Je recommande cette période</label><label>Durée conseillée<input type="number" min="1" [(ngModel)]="tripFeedback.recommendedDuration" placeholder="Nombre de jours"></label><label>Ce que j’aurais aimé savoir<textarea [(ngModel)]="tripFeedback.adviceText" placeholder="Ton conseil, avec tes propres mots…"></textarea></label><label><input type="checkbox" [(ngModel)]="tripFeedback.publishAdvice"> Publier ce conseil</label><label><input type="checkbox" [(ngModel)]="tripFeedback.showExactBudget"> Afficher mon budget exact</label><label><input type="checkbox" [(ngModel)]="tripFeedback.allowAnonymousStatistics"> Utiliser mon budget dans les statistiques anonymes</label><button class="secondary" (click)="submitTripFeedback()">Enregistrer mon retour</button></div>}
           <div class="publish-controls">
-            <button class="secondary" (click)="completeTrip()">
-              Terminer le voyage
+            <button class="secondary" [class.button-loading]="completingTrip" [disabled]="completingTrip || publishingTrip" (click)="completeTrip()">
+              <i></i>{{ completingTrip ? 'Calcul des souvenirs…' : 'Terminer le voyage' }}
             </button>
+            @if (actionError?.scope === 'complete-trip') { <div class="inline-feedback error"><span>Le bilan n’a pas pu être calculé.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Réessayer</button></div> }
             <div class="public-design-picker">
               <span>Style de publication</span
               ><button
@@ -694,9 +696,11 @@
                 Budget</label
               >
             </div>
-            <button class="primary" (click)="publishTrip()">
-              Publier mon voyage ✦
+            <button class="primary publish-trip-button" [class.button-loading]="publishingTrip" [disabled]="publishingTrip || completingTrip" (click)="publishTrip()">
+              <i></i>{{ publishingTrip ? 'Publication en cours…' : publishedSlug ? '✓ Voyage publié' : 'Publier mon voyage ✦' }}
             </button>
+            @if (publishingTrip || publishProgress === 100) { <div class="publish-progress" [class.complete]="publishProgress === 100"><div><span>{{ publishStage }}</span><b>{{ publishProgress }}%</b></div><i><span [style.width.%]="publishProgress"></span></i><small>{{ publishingTrip ? 'Tu peux rester sur cette page, nous préparons une copie publique de tes souvenirs.' : 'La page publique est prête et tes éléments privés restent protégés.' }}</small></div> }
+            @if (actionError?.scope === 'publication') { <div class="inline-feedback error publication-error"><span>La publication a été interrompue.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Réessayer</button></div> }
           </div>
         </section>
       </section>
@@ -732,11 +736,12 @@
               <span class="eyebrow">1 · Tes souvenirs bruts</span>
               <h3>Que s’est-il passé ?</h3>
               <div class="media-actions">
-                <label class="secondary upload"
+                <label class="secondary upload" [class.disabled]="uploadingMedia"
                   >📸 Photos & vidéos<input
                     type="file"
                     accept="image/*,video/*"
                     multiple
+                    [disabled]="uploadingMedia"
                     (change)="addMedia($event)" /></label
                 ><button
                   class="secondary record"
@@ -746,6 +751,8 @@
                   {{ recording ? "■ Arrêter" : "🎙️ Raconter ma journée" }}
                 </button>
               </div>
+              @if (uploadingMedia || uploadProgress) { <div class="local-operation" [class.complete]="!uploadingMedia"><i [class.spinner]="uploadingMedia">{{ uploadingMedia ? '' : '✓' }}</i><span>{{ uploadProgress || 'Préparation des médias…' }}</span></div> }
+              @if (actionError?.scope === 'media') { <div class="inline-feedback error"><span>L’import a été interrompu.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Que faire ?</button></div> }
               @if (journalMedia.length) {
                 <div class="media-strip">
                   @for (media of journalMedia; track media.id) {
