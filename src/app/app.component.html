@@ -3,7 +3,7 @@
   <div class="ambient ambient-two"></div>
   <div class="stars">✦　·　✧</div>
 
-  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader") {
+  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader" && screen !== "video-studio") {
     <header class="topbar">
       <button class="brand" (click)="go('home')">
         <span class="brand-mark">✦</span><span>To Get There</span>
@@ -39,7 +39,7 @@
     </header>
   }
 
-  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader" && screen !== "conversation") {
+  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader" && screen !== "conversation" && screen !== "video-studio") {
     <nav class="mobile-bottom-nav" aria-label="Navigation principale">
       <button [class.active]="screen === 'home'" (click)="go('home')"><span>⌂</span><small>Accueil</small></button>
       <button [class.active]="screen === 'trips' || screen === 'dashboard' || screen === 'journal'" (click)="go('trips')"><span>▣</span><small>Voyages</small></button>
@@ -50,6 +50,11 @@
   }
 
   <main>
+    @defer (when screen === "video-studio") {
+      @if (selectedTrip) {
+        <app-video-studio [trip]="selectedTrip" [day]="videoDay" [project]="videoProject" [media]="videoMedia" [busy]="videoBusy" [render]="videoRender" [error]="videoError" (close)="closeVideoStudio()" (generate)="generateVideoStoryboard($event)" (save)="saveVideoProject($event)" (exportFilm)="renderVideoProject($event)"></app-video-studio>
+      }
+    }
     @if (screen === "reader" && readerPage) {
       <section class="book-reader" [ngClass]="readerDesignClasses.concat('reader-' + (readerPage.layout || readerTrip?.design || 'editorial'))" [ngStyle]="readerDesignStyles" (touchstart)="readerTouchStart($event)" (touchend)="readerTouchEnd($event)">
         <header class="reader-bar"><button (click)="closeReader()">✕ Fermer</button><div><span>{{ readerTrip?.title }}</span><i [style.width.%]="((readerIndex + 1) / readerPages.length) * 100"></i></div><div class="reader-tools"><button (click)="readerTocOpen = !readerTocOpen" aria-label="Sommaire">☰</button><button (click)="toggleReaderFullscreen()" aria-label="Plein écran">⛶</button><span>{{ readerIndex + 1 }} / {{ readerPages.length }}</span></div></header>
@@ -459,7 +464,7 @@
                 : "✦ Voyage public"
             }}</span>
             <h2>{{ selectedTrip.title }}</h2>
-            <button class="hero-read-button" [class.button-loading]="openingReader" [disabled]="openingReader" (click)="openOwnerReader()"><i></i>{{ openingReader ? 'Préparation du carnet…' : '◉ Lire le carnet' }}</button>
+            <div class="hero-memory-actions"><button class="hero-read-button" [class.button-loading]="openingReader" [disabled]="openingReader" (click)="openOwnerReader()"><i></i>{{ openingReader ? 'Préparation du carnet…' : '◉ Lire le carnet' }}</button><button class="hero-film-button" (click)="openVideoStudio()">▶ Créer mon film</button></div>
             <p>
               📍 {{ selectedTrip.country }}　·　{{
                 formatDate(selectedTrip.startDate)
@@ -918,6 +923,7 @@
                   }
                 </div>
                 <div class="publish-actions">
+                  <button class="film-day-button" (click)="openVideoStudio(selectedDay)">▶ Transformer cette journée en film</button>
                   <button class="secondary" (click)="saveJournal(false)">
                     Enregistrer le brouillon</button
                   ><button
@@ -1315,7 +1321,7 @@
     }
   </main>
 
-  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader") {
+  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader" && screen !== "video-studio") {
     <footer>
       <span class="brand">✦ To Get There</span>
       <p>Voyage doucement, rêve grand.</p>

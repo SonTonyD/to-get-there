@@ -192,6 +192,17 @@ export class SupabaseService {
     }));
   }
 
+  async tripMedia(tripId: string) {
+    const { data, error } = await this.db.from('trip_media')
+      .select('*, trip_days!inner(trip_id,day_number,day_date)')
+      .eq('trip_days.trip_id', tripId).order('created_at');
+    if (error) throw error;
+    return Promise.all((data ?? []).map(async item => {
+      const { data: signed } = await this.db.storage.from('trip-media').createSignedUrl(item.storage_path, 3600);
+      return { ...item, url: signed?.signedUrl };
+    }));
+  }
+
   async transcribe(storagePath: string) {
     const { data, error } = await this.db.functions.invoke('transcribe-day', { body: { storagePath } });
     if (error) throw error;
@@ -202,6 +213,61 @@ export class SupabaseService {
     const { data, error } = await this.db.functions.invoke('generate-journal', { body: { dayId, rawText, media } });
     if (error) throw error;
     return data;
+  }
+
+  async latestVideoProject(tripId: string, tripDayId?: string | null) {
+    let query = this.db.from('video_projects').select('*, video_scenes(*)').eq('trip_id', tripId);
+    query = tripDayId ? query.eq('trip_day_id', tripDayId) : query.is('trip_day_id', null);
+    const { data, error } = await query.order('updated_at', { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    return data ? { ...data, scenes: (data.video_scenes ?? []).sort((a: any, b: any) => a.position - b.position) } : null;
+  }
+
+  async generateVideoStoryboard(payload: Record<string, unknown>) {
+    const { data, error } = await this.db.functions.invoke('generate-video-storyboard', { body: payload });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  async saveVideoStoryboard(project: any) {
+    const { data, error } = await this.db.rpc('save_video_storyboard', {
+      target_project: project.id,
+      project_title: project.title,
+      project_format: project.format,
+      project_duration: Number(project.target_duration),
+      project_style: project.style_settings,
+      storyboard: (project.scenes ?? []).map((scene: any) => ({
+        sceneType: scene.scene_type, duration: Number(scene.duration), title: scene.title,
+        caption: scene.caption, mediaIds: scene.media_ids ?? [], settings: scene.settings ?? {}
+      }))
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async requestVideoRender(projectId: string) {
+    const { data, error } = await this.db.functions.invoke('request-video-render', { body: { projectId } });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data.render;
+  }
+
+  async videoRender(renderId: string) {
+    const { data, error } = await this.db.from('video_renders').select('*').eq('id', renderId).single();
+    if (error) throw error;
+    if (data.status === 'completed' && data.storage_path) {
+      const { data: signed } = await this.db.storage.from('video-renders').createSignedUrl(data.storage_path, 3600);
+      return { ...data, url: signed?.signedUrl };
+    }
+    return data;
+  }
+
+  async latestVideoRender(projectId: string) {
+    const { data, error } = await this.db.from('video_renders').select('*').eq('project_id', projectId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return this.videoRender(data.id);
   }
 
   async saveExpense(tripId: string, dayId: string, expense: { label: string; amount: number; currency: string; convertedAmount: number; convertedCurrency: string; category: string; date: string }) {

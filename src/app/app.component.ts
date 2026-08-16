@@ -3,8 +3,9 @@ import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SupabaseService } from './supabase.service';
 import * as L from 'leaflet';
+import { VideoStudioComponent, VideoStudioConfig } from './video-studio.component';
 
-type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'journal' | 'explore' | 'destination' | 'place' | 'public-trip' | 'public-profile' | 'inspirations' | 'inbox' | 'conversation' | 'community-settings' | 'reader' | 'profile';
+type Screen = 'splash' | 'auth' | 'questionnaire' | 'home' | 'trips' | 'new-trip' | 'dashboard' | 'journal' | 'explore' | 'destination' | 'place' | 'public-trip' | 'public-profile' | 'inspirations' | 'inbox' | 'conversation' | 'community-settings' | 'reader' | 'video-studio' | 'profile';
 type AuthMode = 'login' | 'signup' | 'forgot';
 type TripTab = 'journal' | 'map' | 'budget' | 'settings';
 type JournalStep = 1 | 2 | 3 | 4;
@@ -19,7 +20,7 @@ interface ScrapbookDesign { style:'wanderlust'|'retro'|'botanical'|'nocturne';pa
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, VideoStudioComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
@@ -61,6 +62,7 @@ export class AppComponent implements OnInit, OnDestroy {
   inboxList:any[]=[]; activeConversationId=''; messagesList:any[]=[]; messageDraft=''; friendRequests:any[]=[];
   activeConversationPeer:any=null; unreadMessageCount=0; pendingFriendCount=0;
   messagePermission:'everyone'|'following'|'friends'|'nobody'='everyone';
+  videoProject:any=null;videoMedia:any[]=[];videoRender:any=null;videoBusy='';videoError='';videoDay:TripDay|null=null;videoOrigin:Screen='dashboard';private videoRenderTimer?:ReturnType<typeof setInterval>;
   tripTab:TripTab='journal'; journalStep:JournalStep=1;
   private map?: L.Map;
   private recorder: MediaRecorder | null = null;
@@ -78,9 +80,9 @@ export class AppComponent implements OnInit, OnDestroy {
     } catch { /* Une indisponibilité Supabase ne doit pas casser l'accueil public. */ }
   }
 
-  ngOnDestroy(){if(this.communityPollTimer)clearInterval(this.communityPollTimer)}
+  ngOnDestroy(){if(this.communityPollTimer)clearInterval(this.communityPollTimer);if(this.videoRenderTimer)clearInterval(this.videoRenderTimer)}
 
-  go(screen: Screen) { const privateScreens:Screen[]=['trips','new-trip','dashboard','journal','profile','inspirations','inbox','conversation','community-settings'];if(!this.userId&&privateScreens.includes(screen)){this.authMode='login';this.screen='auth'}else this.screen=screen;this.menuOpen=false;window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  go(screen: Screen) { const privateScreens:Screen[]=['trips','new-trip','dashboard','journal','video-studio','profile','inspirations','inbox','conversation','community-settings'];if(!this.userId&&privateScreens.includes(screen)){this.authMode='login';this.screen='auth'}else this.screen=screen;this.menuOpen=false;window.scrollTo({ top: 0, behavior: 'smooth' }); }
   start() { this.go('auth'); }
   async submitAuth() {
     if (!this.supabase.configured) { this.notify('Ajoute d’abord tes clés Supabase dans environment.ts'); return; }
@@ -249,6 +251,35 @@ export class AppComponent implements OnInit, OnDestroy {
   async blockProfile(){if(!this.communityProfile)return;if(!confirm('Bloquer cet utilisateur ?'))return;try{await this.supabase.blockUser(this.communityProfile.profile.id);this.relationship.blocked=true;this.notify('Utilisateur bloqué')}catch(error){this.notify(this.errorMessage(error))}}
   async reportTarget(type:'user'|'comment'|'message',id:string){const reason=prompt('Pourquoi souhaitez-vous signaler ce contenu ?');if(!reason)return;try{await this.supabase.report(type,id,reason);this.notify('Signalement transmis')}catch(error){this.notify(this.errorMessage(error))}}
   async updateMessagePermission(){try{await this.supabase.saveMessagePermission(this.messagePermission);this.notify('Préférence enregistrée')}catch(error){this.notify(this.errorMessage(error))}}
+  async openVideoStudio(day:TripDay|null=null){
+    if(!this.selectedTrip)return;
+    this.videoOrigin=this.screen;this.videoDay=day;this.videoProject=null;this.videoRender=null;this.videoError='';this.videoBusy='loading';this.go('video-studio');
+    try{
+      [this.videoMedia,this.videoProject]=await Promise.all([day?.id?this.supabase.media(day.id):this.supabase.tripMedia(this.selectedTrip.id),this.supabase.latestVideoProject(this.selectedTrip.id,day?.id)]);
+      if(this.videoProject){this.videoRender=await this.supabase.latestVideoRender(this.videoProject.id);if(this.videoRender&&!['completed','failed'].includes(this.videoRender.status))this.pollVideoRender(this.videoRender.id)}
+    }catch(error){this.videoError=this.errorMessage(error)}finally{this.videoBusy=''}
+  }
+  closeVideoStudio(){if(this.videoOrigin==='journal'&&this.videoDay)this.go('journal');else this.go('dashboard')}
+  async generateVideoStoryboard(config:VideoStudioConfig){
+    if(!this.selectedTrip||this.videoBusy)return;this.videoBusy='generating';this.videoError='';
+    try{const result=await this.supabase.generateVideoStoryboard({tripId:this.selectedTrip.id,tripDayId:this.videoDay?.id??null,format:config.format,targetDuration:config.targetDuration,style:{palette:config.palette,music:config.music,showText:config.showText,style:'scrapbook'}});this.videoProject=result.project;this.notify('Storyboard prêt · personnalise maintenant ton film ✦')}
+    catch(error){this.videoError=this.errorMessage(error)}finally{this.videoBusy=''}
+  }
+  async saveVideoProject(project:any,announce=true){
+    if(!project||this.videoBusy)return;this.videoBusy='saving';this.videoError='';
+    try{await this.supabase.saveVideoStoryboard(project);this.videoProject=await this.supabase.latestVideoProject(project.trip_id,project.trip_day_id);if(announce)this.notify('Film enregistré')}
+    catch(error){this.videoError=this.errorMessage(error);throw error}finally{this.videoBusy=''}
+  }
+  async renderVideoProject(project:any){
+    if(!project||this.videoBusy)return;this.videoError='';
+    try{await this.saveVideoProject(project,false);this.videoBusy='rendering';this.videoRender=await this.supabase.requestVideoRender(project.id);if(this.videoRender.status==='failed'){this.videoError=this.videoRender.error_message;return}this.pollVideoRender(this.videoRender.id)}
+    catch(error){this.videoError=this.errorMessage(error)}finally{this.videoBusy=''}
+  }
+  private pollVideoRender(renderId:string){
+    if(this.videoRenderTimer)clearInterval(this.videoRenderTimer);
+    const refresh=async()=>{try{this.videoRender=await this.supabase.videoRender(renderId);if(['completed','failed'].includes(this.videoRender.status)){if(this.videoRenderTimer)clearInterval(this.videoRenderTimer);this.videoRenderTimer=undefined;if(this.videoRender.status==='completed')this.notify('Ton film est prêt à télécharger ✦')}}catch(error){this.videoError=this.errorMessage(error)}};
+    void refresh();this.videoRenderTimer=setInterval(()=>void refresh(),2500);
+  }
   async openOwnerReader() { if (!this.selectedTrip||this.openingReader) return;this.openingReader=true; try { const days=await this.supabase.tripReader(this.selectedTrip.id); this.readerTrip={ id:this.selectedTrip.id,title:this.selectedTrip.title,country:this.selectedTrip.country,startDate:this.selectedTrip.startDate,endDate:this.selectedTrip.endDate,author:this.user.firstname,design:'scrapbook',stats:this.tripStats }; this.readerPages=this.buildReaderPages(days.map((day:any)=>{const journal=day.day_journals?.[0]??day.day_journals??{};return{date:day.day_date,title:journal.title||day.label||`Jour ${day.day_number}`,summary:journal.summary||day.notes||'',layout:'scrapbook',design:{...this.defaultScrapbookDesign(),...(journal.design_settings??{})},events:(journal.journal_events??[]).sort((a:any,b:any)=>a.event_order-b.event_order).map((event:any)=>({time:event.event_time,title:event.title,description:event.description,place:event.place_text})),photos:(day.trip_media??[]).map((media:any)=>media.url).filter(Boolean)}}),this.readerTrip); this.readerOrigin='dashboard';this.restoreReaderPosition();this.go('reader'); } catch(error){this.notify(this.errorMessage(error))}finally{this.openingReader=false} }
   openPublicReader(){if(!this.selectedPublicTrip)return;const sourceDays=this.selectedPublicTrip.days??[];const allPhotos=(this.selectedPublicTrip.photos??[]).filter(Boolean);const legacyBuckets=sourceDays.map((_:any,index:number)=>allPhotos.filter((_:string,photoIndex:number)=>photoIndex%Math.max(sourceDays.length,1)===index));const days=sourceDays.map((day:any,index:number)=>({...day,layout:'scrapbook',photos:(this.selectedPublicTrip.photoDays?.[day.date]??legacyBuckets[index]??[]).filter(Boolean),events:day.events??[]}));this.readerTrip={...this.selectedPublicTrip.trip,author:this.selectedPublicTrip.author.firstname||this.selectedPublicTrip.author.username,design:'scrapbook',stats:this.selectedPublicTrip.stats};this.readerPages=this.buildReaderPages(days,this.readerTrip);this.readerOrigin='public-trip';this.restoreReaderPosition();this.go('reader')}
   private buildReaderPages(days:any[],trip:any){

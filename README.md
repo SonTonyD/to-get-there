@@ -36,6 +36,18 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Film souvenir
+
+Le studio Angular est relié à Supabase par la migration `supabase/migrations/20260816_video_memories_mvp.sql` et deux Edge Functions :
+
+```bash
+supabase db push
+supabase functions deploy generate-video-storyboard
+supabase functions deploy request-video-render
+```
+
+La génération du storyboard utilise `OPENAI_VIDEO_MODEL`, puis `OPENAI_MODEL`, avec `gpt-5.6-luna` comme valeur par défaut. L’export MP4 est volontairement séparé des Edge Functions : déployez le conteneur de `video-renderer`, puis configurez `VIDEO_RENDERER_URL` et `VIDEO_RENDERER_SECRET` dans les secrets Supabase. Les détails sont dans [video-renderer/README.md](video-renderer/README.md).
+
 ## Running unit tests
 
 To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:

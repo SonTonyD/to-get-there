@@ -8,6 +8,8 @@
 
 # Node
 /node_modules
+**/node_modules
+video-renderer/dist
 npm-debug.log
 yarn-error.log
 supabase/functions/.env
