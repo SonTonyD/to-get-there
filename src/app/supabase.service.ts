@@ -206,6 +206,7 @@ export class SupabaseService {
 
   async reorderMedia(items:any[]){const results=await Promise.all(items.map((item,index)=>this.db.from('trip_media').update({sort_order:index}).eq('id',item.id)));const failed=results.find(result=>result.error);if(failed?.error)throw failed.error;}
   async setMediaSelected(id:string,selected:boolean){const{error}=await this.db.from('trip_media').update({selected}).eq('id',id);if(error)throw error;}
+  async setMediaCaption(id:string,caption:string){const{error}=await this.db.from('trip_media').update({caption:caption||null}).eq('id',id);if(error)throw error;}
   async saveJournalStep(dayId:string,lastStep:number){const{error}=await this.db.from('day_journals').upsert({trip_day_id:dayId,last_step:lastStep},{onConflict:'trip_day_id'});if(error)throw error;}
 
   async tripCommandCenter(tripId:string){

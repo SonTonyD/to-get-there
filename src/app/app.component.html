@@ -3,7 +3,13 @@
   <div class="ambient ambient-two"></div>
   <div class="stars">✦　·　✧</div>
 
-  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader" && screen !== "video-studio") {
+  @if (
+    screen !== "splash" &&
+    screen !== "auth" &&
+    screen !== "questionnaire" &&
+    screen !== "reader" &&
+    screen !== "video-studio"
+  ) {
     <header class="topbar">
       <button class="brand" (click)="go('home')">
         <span class="brand-mark">✦</span><span>To Get There</span>
@@ -25,7 +31,16 @@
           Explorer
         </button>
         <button (click)="openInspirations()">Inspirations</button>
-        <button class="nav-messages" (click)="openInbox()">Messages @if (unreadMessageCount + pendingFriendCount > 0) { <span class="notification-badge">{{ unreadMessageCount + pendingFriendCount > 9 ? '9+' : unreadMessageCount + pendingFriendCount }}</span> }</button>
+        <button class="nav-messages" (click)="openInbox()">
+          Messages
+          @if (unreadMessageCount + pendingFriendCount > 0) {
+            <span class="notification-badge">{{
+              unreadMessageCount + pendingFriendCount > 9
+                ? "9+"
+                : unreadMessageCount + pendingFriendCount
+            }}</span>
+          }
+        </button>
         <button class="nav-create" (click)="go('new-trip')">
           ＋ Nouveau voyage
         </button>
@@ -39,27 +54,87 @@
     </header>
   }
 
-  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader" && screen !== "conversation" && screen !== "video-studio") {
+  @if (
+    screen !== "splash" &&
+    screen !== "auth" &&
+    screen !== "questionnaire" &&
+    screen !== "reader" &&
+    screen !== "conversation" &&
+    screen !== "video-studio"
+  ) {
     <nav class="mobile-bottom-nav" aria-label="Navigation principale">
-      <button [class.active]="screen === 'home'" (click)="go('home')"><span>⌂</span><small>Accueil</small></button>
-      <button [class.active]="screen === 'trips' || screen === 'dashboard' || screen === 'journal'" (click)="go('trips')"><span>▣</span><small>Voyages</small></button>
-      <button class="mobile-create" (click)="go('new-trip')"><span>＋</span><small>Créer</small></button>
-      <button [class.active]="screen === 'explore' || screen === 'public-trip'" (click)="openExplore()"><span>⌕</span><small>Explorer</small></button>
-      <button [class.active]="screen === 'inbox'" (click)="openInbox()"><span>✉</span><small>Messages</small>@if (unreadMessageCount + pendingFriendCount > 0) { <i>{{ unreadMessageCount + pendingFriendCount > 9 ? '9+' : unreadMessageCount + pendingFriendCount }}</i> }</button>
+      <button [class.active]="screen === 'home'" (click)="go('home')">
+        <span>⌂</span><small>Accueil</small>
+      </button>
+      <button
+        [class.active]="
+          screen === 'trips' || screen === 'dashboard' || screen === 'journal'
+        "
+        (click)="go('trips')"
+      >
+        <span>▣</span><small>Voyages</small>
+      </button>
+      <button class="mobile-create" (click)="go('new-trip')">
+        <span>＋</span><small>Créer</small>
+      </button>
+      <button
+        [class.active]="screen === 'explore' || screen === 'public-trip'"
+        (click)="openExplore()"
+      >
+        <span>⌕</span><small>Explorer</small>
+      </button>
+      <button [class.active]="screen === 'inbox'" (click)="openInbox()">
+        <span>✉</span><small>Messages</small>
+        @if (unreadMessageCount + pendingFriendCount > 0) {
+          <i>{{
+            unreadMessageCount + pendingFriendCount > 9
+              ? "9+"
+              : unreadMessageCount + pendingFriendCount
+          }}</i>
+        }
+      </button>
     </nav>
   }
 
   <main>
     @defer (when screen === "video-studio") {
       @if (screen === "video-studio" && selectedTrip) {
-        <app-video-studio [trip]="selectedTrip" [day]="videoDay" [project]="videoProject" [media]="videoMedia" [busy]="videoBusy" [exportState]="videoExport" [browserExportSupported]="browserVideo.supported" [error]="videoError" (close)="closeVideoStudio()" (generate)="generateVideoStoryboard($event)" (save)="saveVideoProject($event)" (exportFilm)="exportVideoInBrowser($event)"></app-video-studio>
+        <app-video-studio
+          [trip]="selectedTrip"
+          [day]="videoDay"
+          [project]="videoProject"
+          [media]="videoMedia"
+          [busy]="videoBusy"
+          [exportState]="videoExport"
+          [browserExportSupported]="browserVideo.supported"
+          [error]="videoError"
+          (close)="closeVideoStudio()"
+          (generate)="generateVideoStoryboard($event)"
+          (save)="saveVideoProject($event)"
+          (exportFilm)="exportVideoInBrowser($event)"
+        ></app-video-studio>
       }
     }
     @defer (when screen === "reader") {
       @if (screen === "reader" && readerPage) {
-        <app-travel-reader [pages]="readerPages" [trip]="readerTrip" [index]="readerIndex" [designClasses]="readerDesignClasses" [designStyles]="readerDesignStyles" (indexChange)="goToReaderPage($event)" (closeRequested)="closeReader()" (notice)="notify($event)"></app-travel-reader>
+        <app-travel-reader
+          [pages]="readerPages"
+          [trip]="readerTrip"
+          [index]="readerIndex"
+          [designClasses]="readerDesignClasses"
+          [designStyles]="readerDesignStyles"
+          (indexChange)="goToReaderPage($event)"
+          (closeRequested)="closeReader()"
+          (notice)="notify($event)"
+        ></app-travel-reader>
       }
-    } @placeholder { @if (screen === "reader") { <div class="route-loading"><i></i><span>Ouverture du carnet…</span></div> } }
+    } @placeholder {
+      @if (screen === "reader") {
+        <div class="route-loading">
+          <i></i><span>Ouverture du carnet…</span>
+        </div>
+      }
+    }
     @if (screen === "splash") {
       <section class="splash page">
         <div class="splash-copy">
@@ -420,10 +495,24 @@
           <div class="info-note">
             ✨ Les journées seront créées automatiquement entre tes dates.
           </div>
-          <button class="primary wide large" [class.button-loading]="creatingTrip" [disabled]="creatingTrip" (click)="createTrip()">
-            <i></i>{{ creatingTrip ? 'Création du voyage…' : 'Créer mon voyage →' }}
+          <button
+            class="primary wide large"
+            [class.button-loading]="creatingTrip"
+            [disabled]="creatingTrip"
+            (click)="createTrip()"
+          >
+            <i></i
+            >{{ creatingTrip ? "Création du voyage…" : "Créer mon voyage →" }}
           </button>
-          @if (actionError?.scope === 'create-trip') { <div class="inline-feedback error"><span>Le voyage n’a pas pu être créé.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Réessayer</button></div> }
+          @if (actionError?.scope === "create-trip") {
+            <div class="inline-feedback error">
+              <span
+                >Le voyage n’a pas pu être créé.<small>{{
+                  actionError?.message
+                }}</small></span
+              ><button (click)="retryLastAction()">Réessayer</button>
+            </div>
+          }
         </div>
       </section>
     }
@@ -439,7 +528,28 @@
                 : "✦ Voyage public"
             }}</span>
             <h2>{{ selectedTrip.title }}</h2>
-            <div class="hero-memory-actions">@if(nextDayProgress){<button class="trip-next-action" (click)="continueNextDay()">{{nextDayProgress.state==='empty'?'＋ Commencer':nextDayProgress.state==='review'?'✓ Vérifier':'→ Continuer'}} le jour {{nextDayProgress.number}}</button>}<button class="hero-read-button" [class.button-loading]="openingReader" [disabled]="openingReader" (click)="openOwnerReader()"><i></i>{{ openingReader ? 'Préparation du carnet…' : '◉ Lire' }}</button></div>
+            <div class="hero-memory-actions">
+              @if (nextDayProgress) {
+                <button class="trip-next-action" (click)="continueNextDay()">
+                  {{
+                    nextDayProgress.state === "empty"
+                      ? "＋ Commencer"
+                      : nextDayProgress.state === "review"
+                        ? "✓ Vérifier"
+                        : "→ Continuer"
+                  }}
+                  le jour {{ nextDayProgress.number }}
+                </button>
+              }
+              <button
+                class="hero-read-button"
+                [class.button-loading]="openingReader"
+                [disabled]="openingReader"
+                (click)="openOwnerReader()"
+              >
+                <i></i>{{ openingReader ? "Préparation du carnet…" : "◉ Lire" }}
+              </button>
+            </div>
             <p>
               📍 {{ selectedTrip.country }}　·　{{
                 formatDate(selectedTrip.startDate)
@@ -455,12 +565,99 @@
             ><small>{{ selectedTrip.days.length }} jours d’évasion</small>
           </div>
         </div>
-        @if(tripCommandCenter){<section class="trip-command-center"><header><div><span class="eyebrow">Centre de pilotage</span><h3>Ton voyage, en un coup d’œil</h3></div><span>{{toldDaysCount}} / {{selectedTrip.days.length}} journées racontées</span></header><div class="command-metrics"><article><i>✎</i><div><b>{{toldDaysCount}}</b><small>journées racontées</small></div></article><article [class.attention]="unusedPhotosCount"><i>▧</i><div><b>{{unusedPhotosCount}}</b><small>photos non utilisées</small></div></article><article [class.attention]="pendingPlacesCount"><i>⌖</i><div><b>{{pendingPlacesCount}}</b><small>lieux à confirmer</small></div></article><article [class.attention]="missingExpensesCount"><i>€</i><div><b>{{missingExpensesCount}}</b><small>journées sans dépense</small></div></article><article [class.complete]="tripCommandCenter.publication"><i>↗</i><div><b>{{tripCommandCenter.publication?'Publié':'Privé'}}</b><small>{{tripCommandCenter.publication?'Page publique disponible':'Voyage non publié'}}</small></div></article><article [class.complete]="tripCommandCenter.film"><i>▶</i><div><b>{{tripCommandCenter.film?.title||'Aucun film'}}</b><small>{{tripCommandCenter.film?(tripCommandCenter.film.status==='ready'?'Film prêt':'Projet en cours'):'Créer un souvenir vidéo'}}</small></div></article></div></section>}
+        @if (tripCommandCenter) {
+          <section class="trip-command-center">
+            <header>
+              <div>
+                <span class="eyebrow">Centre de pilotage</span>
+                <h3>Ton voyage, en un coup d’œil</h3>
+              </div>
+              <span
+                >{{ toldDaysCount }} / {{ selectedTrip.days.length }} journées
+                racontées</span
+              >
+            </header>
+            <div class="command-metrics">
+              <article>
+                <i>✎</i>
+                <div>
+                  <b>{{ toldDaysCount }}</b
+                  ><small>journées racontées</small>
+                </div>
+              </article>
+              <article [class.attention]="unusedPhotosCount">
+                <i>▧</i>
+                <div>
+                  <b>{{ unusedPhotosCount }}</b
+                  ><small>photos non utilisées</small>
+                </div>
+              </article>
+              <article [class.attention]="pendingPlacesCount">
+                <i>⌖</i>
+                <div>
+                  <b>{{ pendingPlacesCount }}</b
+                  ><small>lieux à confirmer</small>
+                </div>
+              </article>
+              <article [class.attention]="missingExpensesCount">
+                <i>€</i>
+                <div>
+                  <b>{{ missingExpensesCount }}</b
+                  ><small>journées sans dépense</small>
+                </div>
+              </article>
+              <article [class.complete]="tripCommandCenter.publication">
+                <i>↗</i>
+                <div>
+                  <b>{{ tripCommandCenter.publication ? "Publié" : "Privé" }}</b
+                  ><small>{{
+                    tripCommandCenter.publication
+                      ? "Page publique disponible"
+                      : "Voyage non publié"
+                  }}</small>
+                </div>
+              </article>
+              <article [class.complete]="tripCommandCenter.film">
+                <i>▶</i>
+                <div>
+                  <b>{{ tripCommandCenter.film?.title || "Aucun film" }}</b
+                  ><small>{{
+                    tripCommandCenter.film
+                      ? tripCommandCenter.film.status === "ready"
+                        ? "Film prêt"
+                        : "Projet en cours"
+                      : "Créer un souvenir vidéo"
+                  }}</small>
+                </div>
+              </article>
+            </div>
+          </section>
+        }
         <nav class="trip-tabs" aria-label="Sections du voyage">
-          <button [class.active]="tripTab === 'journal'" (click)="setTripTab('journal')"><span>✎</span> Journal</button>
-          <button [class.active]="tripTab === 'map'" (click)="setTripTab('map')"><span>⌖</span> Carte</button>
-          <button [class.active]="tripTab === 'budget'" (click)="setTripTab('budget')"><span>€</span> Budget</button>
-          <button [class.active]="tripTab === 'settings'" (click)="setTripTab('settings')"><span>•••</span> Plus</button>
+          <button
+            [class.active]="tripTab === 'journal'"
+            (click)="setTripTab('journal')"
+          >
+            <span>✎</span> Journal
+          </button>
+          <button
+            [class.active]="tripTab === 'map'"
+            (click)="setTripTab('map')"
+          >
+            <span>⌖</span> Carte
+          </button>
+          <button
+            [class.active]="tripTab === 'budget'"
+            (click)="setTripTab('budget')"
+          >
+            <span>€</span> Budget
+          </button>
+          <button
+            [class.active]="tripTab === 'settings'"
+            (click)="setTripTab('settings')"
+          >
+            <span>•••</span> Plus
+          </button>
         </nav>
         <div class="dashboard-grid" [hidden]="tripTab !== 'journal'">
           <div class="days">
@@ -471,8 +668,18 @@
               </div>
               <span class="badge">{{ selectedTrip.days.length }} jours</span>
             </div>
-            @for (day of selectedTrip.days; track (day.id || day.date || 'day') + '-' + $index) {
-              <div class="day-row journey-timeline-row" [class.next-day]="progressForDay(day)?.dayId===nextDayProgress?.dayId" [ngClass]="'state-'+(progressForDay(day)?.state||'empty')" (click)="openJournal(day,progressForDay(day)?.step)">
+            @for (
+              day of selectedTrip.days;
+              track (day.id || day.date || "day") + "-" + $index
+            ) {
+              <div
+                class="day-row journey-timeline-row"
+                [class.next-day]="
+                  progressForDay(day)?.dayId === nextDayProgress?.dayId
+                "
+                [ngClass]="'state-' + (progressForDay(day)?.state || 'empty')"
+                (click)="openJournal(day, progressForDay(day)?.step)"
+              >
                 <div class="day-number">
                   {{ day.label.replace("Jour ", "") }}
                 </div>
@@ -480,14 +687,80 @@
                   <strong>{{ day.label }}</strong
                   ><span>{{ formatDate(day.date) }}</span>
                 </div>
-                <div class="day-placeholder"><b>{{progressForDay(day)?.label||'À commencer'}}</b><span>{{progressForDay(day)?.detail||day.note||'Aucun souvenir ajouté'}}</span><small>@if(progressForDay(day)?.photoCount){▧ {{progressForDay(day)?.photoCount}} photo{{(progressForDay(day)?.photoCount||0)>1?'s':''}}}@if(progressForDay(day)?.pendingPlaces){ · ⌖ {{progressForDay(day)?.pendingPlaces}} lieu{{(progressForDay(day)?.pendingPlaces||0)>1?'x':''}} à confirmer}@if(progressForDay(day)?.expenseCount){ · € {{progressForDay(day)?.expenseCount}} dépense{{(progressForDay(day)?.expenseCount||0)>1?'s':''}}}</small></div>
-                <span class="day-state-dot"></span><button [attr.aria-label]="progressForDay(day)?.state==='complete'?'Ouvrir':'Continuer'">{{progressForDay(day)?.state==='complete'?'✓':'→'}}</button>
+                <div class="day-placeholder">
+                  <b>{{ progressForDay(day)?.label || "À commencer" }}</b
+                  ><span>{{
+                    progressForDay(day)?.detail ||
+                      day.note ||
+                      "Aucun souvenir ajouté"
+                  }}</span
+                  ><small>
+                    @if (progressForDay(day)?.photoCount) {
+                      ▧ {{ progressForDay(day)?.photoCount }} photo{{
+                        (progressForDay(day)?.photoCount || 0) > 1 ? "s" : ""
+                      }}
+                    }
+                    @if (progressForDay(day)?.pendingPlaces) {
+                      · ⌖ {{ progressForDay(day)?.pendingPlaces }} lieu{{
+                        (progressForDay(day)?.pendingPlaces || 0) > 1 ? "x" : ""
+                      }}
+                      à confirmer
+                    }
+                    @if (progressForDay(day)?.expenseCount) {
+                      · € {{ progressForDay(day)?.expenseCount }} dépense{{
+                        (progressForDay(day)?.expenseCount || 0) > 1 ? "s" : ""
+                      }}
+                    }
+                  </small>
+                </div>
+                <span class="day-state-dot"></span
+                ><button
+                  [attr.aria-label]="
+                    progressForDay(day)?.state === 'complete'
+                      ? 'Ouvrir'
+                      : 'Continuer'
+                  "
+                >
+                  {{ progressForDay(day)?.state === "complete" ? "✓" : "→" }}
+                </button>
               </div>
             }
           </div>
           <aside>
-            <div class="paper-card next-step-card">@if(nextDayProgress){<span class="eyebrow">Prochaine étape</span><b>Jour {{nextDayProgress.number}}</b><h3>{{nextDayProgress.label}}</h3><p>{{nextDayProgress.detail}}</p><button class="primary wide" (click)="continueNextDay()">{{nextDayProgress.state==='empty'?'Commencer cette journée':'Reprendre exactement ici'}} →</button>}@else{<span class="eyebrow">Carnet complet</span><h3>Chaque journée est racontée ✦</h3><button class="primary wide" (click)="openOwnerReader()">Lire le carnet</button>}</div>
-            <div class="dashboard-secondary-actions"><button class="secondary wide" (click)="openOwnerReader()">◉ Lire le carnet</button><button class="secondary wide" (click)="openVideoStudio()">▶ {{tripCommandCenter?.film?'Continuer le film':'Créer un film'}}</button></div>
+            <div class="paper-card next-step-card">
+              @if (nextDayProgress) {
+                <span class="eyebrow">Prochaine étape</span
+                ><b>Jour {{ nextDayProgress.number }}</b>
+                <h3>{{ nextDayProgress.label }}</h3>
+                <p>{{ nextDayProgress.detail }}</p>
+                <button class="primary wide" (click)="continueNextDay()">
+                  {{
+                    nextDayProgress.state === "empty"
+                      ? "Commencer cette journée"
+                      : "Reprendre exactement ici"
+                  }}
+                  →
+                </button>
+              } @else {
+                <span class="eyebrow">Carnet complet</span>
+                <h3>Chaque journée est racontée ✦</h3>
+                <button class="primary wide" (click)="openOwnerReader()">
+                  Lire le carnet
+                </button>
+              }
+            </div>
+            <div class="dashboard-secondary-actions">
+              <button class="secondary wide" (click)="openOwnerReader()">
+                ◉ Lire le carnet</button
+              ><button class="secondary wide" (click)="openVideoStudio()">
+                ▶
+                {{
+                  tripCommandCenter?.film
+                    ? "Continuer le film"
+                    : "Créer un film"
+                }}
+              </button>
+            </div>
             <button class="secondary wide">Modifier le voyage</button
             ><button
               class="danger-link wide"
@@ -497,8 +770,15 @@
             </button>
           </aside>
         </div>
-        <div class="insights-grid" [class.single-insight]="tripTab === 'map' || tripTab === 'budget'" [hidden]="tripTab !== 'map' && tripTab !== 'budget'">
-          <section class="paper-card budget-panel" [hidden]="tripTab !== 'budget'">
+        <div
+          class="insights-grid"
+          [class.single-insight]="tripTab === 'map' || tripTab === 'budget'"
+          [hidden]="tripTab !== 'map' && tripTab !== 'budget'"
+        >
+          <section
+            class="paper-card budget-panel"
+            [hidden]="tripTab !== 'budget'"
+          >
             <div class="section-head">
               <div>
                 <span class="eyebrow">Budget du voyage</span>
@@ -567,7 +847,41 @@
                 }
               }
             </div>
-            <div class="expense-history"><h4>Détail des dépenses <span>{{expenses.length}}</span></h4>@for(item of expenses;track item.id){<article><div><span>{{item.category || 'Autre'}} · {{item.expense_date | date:'dd MMM'}}</span><b>{{item.label}}</b>@if(item.currency !== selectedTrip.currency){<small>{{formatMoney(item.amount,item.currency)}} · converti</small>}</div><strong>{{formatMoney(item.converted_amount ?? item.amount,selectedTrip.currency)}}</strong><button (click)="editExpense(item)" aria-label="Modifier la dépense">Modifier</button></article>}@empty{<p class="mini-empty">Aucune dépense enregistrée.</p>}</div>
+            <div class="expense-history">
+              <h4>
+                Détail des dépenses <span>{{ expenses.length }}</span>
+              </h4>
+              @for (item of expenses; track item.id) {
+                <article>
+                  <div>
+                    <span
+                      >{{ item.category || "Autre" }} ·
+                      {{ item.expense_date | date: "dd MMM" }}</span
+                    ><b>{{ item.label }}</b>
+                    @if (item.currency !== selectedTrip.currency) {
+                      <small
+                        >{{ formatMoney(item.amount, item.currency) }} ·
+                        converti</small
+                      >
+                    }
+                  </div>
+                  <strong>{{
+                    formatMoney(
+                      item.converted_amount ?? item.amount,
+                      selectedTrip.currency
+                    )
+                  }}</strong
+                  ><button
+                    (click)="editExpense(item)"
+                    aria-label="Modifier la dépense"
+                  >
+                    Modifier
+                  </button>
+                </article>
+              } @empty {
+                <p class="mini-empty">Aucune dépense enregistrée.</p>
+              }
+            </div>
           </section>
           <section class="paper-card map-panel" [hidden]="tripTab !== 'map'">
             <div class="section-head">
@@ -585,7 +899,10 @@
             }
           </section>
         </div>
-        <section class="paper-card publish-panel" [hidden]="tripTab !== 'settings'">
+        <section
+          class="paper-card publish-panel"
+          [hidden]="tripTab !== 'settings'"
+        >
           <div>
             <span class="eyebrow">Fin du voyage & publication</span>
             <h3>
@@ -609,12 +926,78 @@
               </div>
             }
           </div>
-          @if (tripStats) {<div class="trip-feedback"><h4>Ce que tu conseillerais</h4><label>Cette destination ?<select [(ngModel)]="tripFeedback.recommendDestination"><option value="yes">Oui</option><option value="mixed">Mitigé</option><option value="no">Non</option></select></label><label><input type="checkbox" [(ngModel)]="tripFeedback.recommendPeriod"> Je recommande cette période</label><label>Durée conseillée<input type="number" min="1" [(ngModel)]="tripFeedback.recommendedDuration" placeholder="Nombre de jours"></label><label>Ce que j’aurais aimé savoir<textarea [(ngModel)]="tripFeedback.adviceText" placeholder="Ton conseil, avec tes propres mots…"></textarea></label><label><input type="checkbox" [(ngModel)]="tripFeedback.publishAdvice"> Publier ce conseil</label><label><input type="checkbox" [(ngModel)]="tripFeedback.showExactBudget"> Afficher mon budget exact</label><label><input type="checkbox" [(ngModel)]="tripFeedback.allowAnonymousStatistics"> Utiliser mon budget dans les statistiques anonymes</label><button class="secondary" (click)="submitTripFeedback()">Enregistrer mon retour</button></div>}
+          @if (tripStats) {
+            <div class="trip-feedback">
+              <h4>Ce que tu conseillerais</h4>
+              <label
+                >Cette destination ?<select
+                  [(ngModel)]="tripFeedback.recommendDestination"
+                >
+                  <option value="yes">Oui</option>
+                  <option value="mixed">Mitigé</option>
+                  <option value="no">Non</option>
+                </select></label
+              ><label
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="tripFeedback.recommendPeriod"
+                />
+                Je recommande cette période</label
+              ><label
+                >Durée conseillée<input
+                  type="number"
+                  min="1"
+                  [(ngModel)]="tripFeedback.recommendedDuration"
+                  placeholder="Nombre de jours" /></label
+              ><label
+                >Ce que j’aurais aimé savoir<textarea
+                  [(ngModel)]="tripFeedback.adviceText"
+                  placeholder="Ton conseil, avec tes propres mots…"
+                ></textarea></label
+              ><label
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="tripFeedback.publishAdvice"
+                />
+                Publier ce conseil</label
+              ><label
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="tripFeedback.showExactBudget"
+                />
+                Afficher mon budget exact</label
+              ><label
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="tripFeedback.allowAnonymousStatistics"
+                />
+                Utiliser mon budget dans les statistiques anonymes</label
+              ><button class="secondary" (click)="submitTripFeedback()">
+                Enregistrer mon retour
+              </button>
+            </div>
+          }
           <div class="publish-controls">
-            <button class="secondary" [class.button-loading]="completingTrip" [disabled]="completingTrip || publishingTrip" (click)="completeTrip()">
-              <i></i>{{ completingTrip ? 'Calcul des souvenirs…' : 'Terminer le voyage' }}
+            <button
+              class="secondary"
+              [class.button-loading]="completingTrip"
+              [disabled]="completingTrip || publishingTrip"
+              (click)="completeTrip()"
+            >
+              <i></i
+              >{{
+                completingTrip ? "Calcul des souvenirs…" : "Terminer le voyage"
+              }}
             </button>
-            @if (actionError?.scope === 'complete-trip') { <div class="inline-feedback error"><span>Le bilan n’a pas pu être calculé.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Réessayer</button></div> }
+            @if (actionError?.scope === "complete-trip") {
+              <div class="inline-feedback error">
+                <span
+                  >Le bilan n’a pas pu être calculé.<small>{{
+                    actionError?.message
+                  }}</small></span
+                ><button (click)="retryLastAction()">Réessayer</button>
+              </div>
+            }
             <div class="public-design-picker">
               <span>Style de publication</span
               ><button
@@ -652,18 +1035,57 @@
                 Budget</label
               >
             </div>
-            <button class="primary publish-trip-button" [class.button-loading]="publishingTrip" [disabled]="publishingTrip || completingTrip" (click)="publishTrip()">
-              <i></i>{{ publishingTrip ? 'Publication en cours…' : publishedSlug ? '✓ Voyage publié' : 'Publier mon voyage ✦' }}
+            <button
+              class="primary publish-trip-button"
+              [class.button-loading]="publishingTrip"
+              [disabled]="publishingTrip || completingTrip"
+              (click)="publishTrip()"
+            >
+              <i></i
+              >{{
+                publishingTrip
+                  ? "Publication en cours…"
+                  : publishedSlug
+                    ? "✓ Voyage publié"
+                    : "Publier mon voyage ✦"
+              }}
             </button>
-            @if (publishingTrip || publishProgress === 100) { <div class="publish-progress" [class.complete]="publishProgress === 100"><div><span>{{ publishStage }}</span><b>{{ publishProgress }}%</b></div><i><span [style.width.%]="publishProgress"></span></i><small>{{ publishingTrip ? 'Tu peux rester sur cette page, nous préparons une copie publique de tes souvenirs.' : 'La page publique est prête et tes éléments privés restent protégés.' }}</small></div> }
-            @if (actionError?.scope === 'publication') { <div class="inline-feedback error publication-error"><span>La publication a été interrompue.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Réessayer</button></div> }
+            @if (publishingTrip || publishProgress === 100) {
+              <div
+                class="publish-progress"
+                [class.complete]="publishProgress === 100"
+              >
+                <div>
+                  <span>{{ publishStage }}</span
+                  ><b>{{ publishProgress }}%</b>
+                </div>
+                <i><span [style.width.%]="publishProgress"></span></i
+                ><small>{{
+                  publishingTrip
+                    ? "Tu peux rester sur cette page, nous préparons une copie publique de tes souvenirs."
+                    : "La page publique est prête et tes éléments privés restent protégés."
+                }}</small>
+              </div>
+            }
+            @if (actionError?.scope === "publication") {
+              <div class="inline-feedback error publication-error">
+                <span
+                  >La publication a été interrompue.<small>{{
+                    actionError?.message
+                  }}</small></span
+                ><button (click)="retryLastAction()">Réessayer</button>
+              </div>
+            }
           </div>
         </section>
       </section>
     }
 
     @if (screen === "journal" && selectedTrip && selectedDay) {
-      <section class="page journal-page" [ngClass]="'journal-step-' + journalStep">
+      <section
+        class="page journal-page"
+        [ngClass]="'journal-step-' + journalStep"
+      >
         <button class="back" (click)="openTrip(selectedTrip)">
           ← {{ selectedTrip.title }}
         </button>
@@ -678,29 +1100,154 @@
               Dépose tes souvenirs, l’IA les transformera en une page de carnet.
             </p>
           </div>
-          <button class="autosave" [class.saving]="autosaveState === 'saving'" [class.saved]="autosaveState === 'saved'" [class.error]="autosaveState === 'error'" [disabled]="autosaveState !== 'error'" (click)="retryLastAction()">{{ autosaveState === 'pending' ? '● Modifications en attente' : autosaveState === 'saving' ? '◌ Enregistrement…' : autosaveState === 'saved' ? '✓ Enregistré' : autosaveState === 'error' ? '⚠ Réessayer l’enregistrement' : '☁ Brouillon automatique' }}</button>
+          <button
+            class="autosave"
+            [class.saving]="autosaveState === 'saving'"
+            [class.saved]="autosaveState === 'saved'"
+            [class.error]="autosaveState === 'error'"
+            [disabled]="autosaveState !== 'error'"
+            (click)="retryLastAction()"
+          >
+            {{
+              autosaveState === "pending"
+                ? "● Modifications en attente"
+                : autosaveState === "saving"
+                  ? "◌ Enregistrement…"
+                  : autosaveState === "saved"
+                    ? "✓ Enregistré"
+                    : autosaveState === "error"
+                      ? "⚠ Réessayer l’enregistrement"
+                      : "☁ Brouillon automatique"
+            }}
+          </button>
         </div>
         <nav class="journal-stepper" aria-label="Étapes de la journée">
-          <button [class.active]="journalStep === 1" [class.done]="journalStep > 1" (click)="setJournalStep(1)"><b>1</b><span>Ajouter<small>Photos et vidéos</small></span></button>
-          <button [class.active]="journalStep === 2" [class.done]="journalStep > 2" (click)="setJournalStep(2)"><b>2</b><span>Raconter<small>Écrit ou vocal</small></span></button>
-          <button [class.active]="journalStep === 3" [class.done]="journalStep > 3" (click)="setJournalStep(3)"><b>3</b><span>Vérifier<small>Uniquement les incertitudes</small></span></button>
-          <button [class.active]="journalStep === 4" (click)="setJournalStep(4)"><b>4</b><span>Finaliser<small>Aperçu et publication</small></span></button>
+          <button
+            [class.active]="journalStep === 1"
+            [class.done]="journalStep > 1"
+            (click)="setJournalStep(1)"
+          >
+            <b>1</b><span>Ajouter<small>Photos et vidéos</small></span>
+          </button>
+          <button
+            [class.active]="journalStep === 2"
+            [class.done]="journalStep > 2"
+            (click)="setJournalStep(2)"
+          >
+            <b>2</b><span>Raconter<small>Écrit ou vocal</small></span>
+          </button>
+          <button
+            [class.active]="journalStep === 3"
+            [class.done]="journalStep > 3"
+            (click)="setJournalStep(3)"
+          >
+            <b>3</b
+            ><span>Vérifier<small>Uniquement les incertitudes</small></span>
+          </button>
+          <button
+            [class.active]="journalStep === 4"
+            (click)="setJournalStep(4)"
+          >
+            <b>4</b><span>Finaliser<small>Aperçu et publication</small></span>
+          </button>
         </nav>
-        @if(journalStep===3){<section class="paper-card review-center"><header><div><span class="eyebrow">Validation intelligente</span><h3>Vérifie seulement ce qui est incertain</h3><p>Tout le reste est déjà prêt. Tu gardes toujours le dernier mot.</p></div><div class="review-score"><b>{{pendingJournalPlaces.length+uncertainEvents.length}}</b><small>à vérifier</small></div></header><div class="review-summary"><span [class.done]="!pendingJournalPlaces.length">⌖ {{pendingJournalPlaces.length}} lieu{{pendingJournalPlaces.length>1?'x':''}}</span><span [class.done]="!uncertainEvents.length">◷ {{uncertainEvents.length}} événement{{uncertainEvents.length>1?'s':''}}</span></div>@if(uncertainEvents.length){<div class="uncertain-events"><h4>Chronologie à confirmer</h4>@for(event of uncertainEvents;track (event.id||event.event_order||$index)){<article><div><span>{{event.time?event.time.slice(0,5):'Horaire inconnu'}}</span><b>{{event.title}}</b><p>{{event.review_reason||'L’IA manque d’éléments pour confirmer ce moment.'}}</p><small>Confiance IA · {{((event.confidence||0)*100)|number:'1.0-0'}}%</small></div><button (click)="confirmEvent(event)">✓ C’est correct</button></article>}</div>}@else{<div class="review-complete">✓ La chronologie ne contient plus d’incertitude.</div>}<button class="primary review-next" [disabled]="pendingJournalPlaces.length||uncertainEvents.length" (click)="setJournalStep(4)">Voir ma page finale →</button></section>}
+        @if (journalStep === 3) {
+          <section class="paper-card review-center">
+            <header>
+              <div>
+                <span class="eyebrow">Validation intelligente</span>
+                <h3>Vérifie seulement ce qui est incertain</h3>
+                <p>
+                  Tout le reste est déjà prêt. Tu gardes toujours le dernier
+                  mot.
+                </p>
+              </div>
+              <div class="review-score">
+                <b>{{ pendingJournalPlaces.length + uncertainEvents.length }}</b
+                ><small>à vérifier</small>
+              </div>
+            </header>
+            <div class="review-summary">
+              <span [class.done]="!pendingJournalPlaces.length"
+                >⌖ {{ pendingJournalPlaces.length }} lieu{{
+                  pendingJournalPlaces.length > 1 ? "x" : ""
+                }}</span
+              ><span [class.done]="!uncertainEvents.length"
+                >◷ {{ uncertainEvents.length }} événement{{
+                  uncertainEvents.length > 1 ? "s" : ""
+                }}</span
+              >
+            </div>
+            @if (uncertainEvents.length) {
+              <div class="uncertain-events">
+                <h4>Chronologie à confirmer</h4>
+                @for (
+                  event of uncertainEvents;
+                  track event.id || event.event_order || $index
+                ) {
+                  <article>
+                    <div>
+                      <span>{{
+                        event.time ? event.time.slice(0, 5) : "Horaire inconnu"
+                      }}</span
+                      ><b>{{ event.title }}</b>
+                      <p>
+                        {{
+                          event.review_reason ||
+                            "L’IA manque d’éléments pour confirmer ce moment."
+                        }}
+                      </p>
+                      <small
+                        >Confiance IA ·
+                        {{
+                          (event.confidence || 0) * 100 | number: "1.0-0"
+                        }}%</small
+                      >
+                    </div>
+                    <button (click)="confirmEvent(event)">
+                      ✓ C’est correct
+                    </button>
+                  </article>
+                }
+              </div>
+            } @else {
+              <div class="review-complete">
+                ✓ La chronologie ne contient plus d’incertitude.
+              </div>
+            }
+            <button
+              class="primary review-next"
+              [disabled]="pendingJournalPlaces.length || uncertainEvents.length"
+              (click)="setJournalStep(4)"
+            >
+              Voir ma page finale →
+            </button>
+          </section>
+        }
         <div class="journal-workspace">
           <div class="journal-editor">
             <div class="paper-card memory-input">
               <span class="eyebrow">1 · Tes souvenirs bruts</span>
               <h3>Que s’est-il passé ?</h3>
               <div class="media-actions">
-                <label class="secondary upload" [class.disabled]="uploadingMedia"
+                <label
+                  class="secondary upload"
+                  [class.disabled]="uploadingMedia"
                   >▧ Depuis la galerie<input
                     type="file"
                     accept="image/*,video/*"
                     multiple
                     [disabled]="uploadingMedia"
                     (change)="addMedia($event)" /></label
-                ><label class="secondary upload camera-upload" [class.disabled]="uploadingMedia">📷 Prendre une photo<input type="file" accept="image/*" capture="environment" [disabled]="uploadingMedia" (change)="addMedia($event)" /></label
+                ><label
+                  class="secondary upload camera-upload"
+                  [class.disabled]="uploadingMedia"
+                  >📷 Prendre une photo<input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    [disabled]="uploadingMedia"
+                    (change)="addMedia($event)" /></label
                 ><button
                   class="secondary record"
                   [class.recording]="recording"
@@ -709,8 +1256,25 @@
                   {{ recording ? "■ Arrêter" : "🎙️ Raconter ma journée" }}
                 </button>
               </div>
-              @if (uploadingMedia || uploadProgress) { <div class="local-operation" [class.complete]="!uploadingMedia"><i [class.spinner]="uploadingMedia">{{ uploadingMedia ? '' : '✓' }}</i><span>{{ uploadProgress || 'Préparation des médias…' }}</span></div> }
-              @if (actionError?.scope === 'media') { <div class="inline-feedback error"><span>L’import a été interrompu.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Que faire ?</button></div> }
+              @if (uploadingMedia || uploadProgress) {
+                <div class="local-operation" [class.complete]="!uploadingMedia">
+                  <i [class.spinner]="uploadingMedia">{{
+                    uploadingMedia ? "" : "✓"
+                  }}</i
+                  ><span>{{
+                    uploadProgress || "Préparation des médias…"
+                  }}</span>
+                </div>
+              }
+              @if (actionError?.scope === "media") {
+                <div class="inline-feedback error">
+                  <span
+                    >L’import a été interrompu.<small>{{
+                      actionError?.message
+                    }}</small></span
+                  ><button (click)="retryLastAction()">Que faire ?</button>
+                </div>
+              }
               @if (journalMedia.length) {
                 <div class="media-strip">
                   @for (media of journalMedia; track media.id) {
@@ -737,12 +1301,92 @@
                       } @else {
                         <b>🎙️</b><small>Récit vocal</small>
                       }
-                      <div class="media-thumb-actions"><button (click)="$event.stopPropagation(); moveMedia(media,-1)" aria-label="Déplacer à gauche">←</button><button (click)="$event.stopPropagation(); moveMedia(media,1)" aria-label="Déplacer à droite">→</button>@if(media.media_type === 'photo'){<button class="media-use" (click)="$event.stopPropagation(); toggleMediaSelection(media)">{{media.selected === false ? '＋ Utiliser' : '✓ Incluse'}}</button><button class="media-cover-action" [disabled]="media.id === journal.coverMediaId || media.selected === false" (click)="$event.stopPropagation(); selectCover(media)">Couverture</button>}</div>
+                      <div class="media-thumb-actions">
+                        <button
+                          (click)="
+                            $event.stopPropagation(); moveMedia(media, -1)
+                          "
+                          aria-label="Déplacer à gauche"
+                        >
+                          ←</button
+                        ><button
+                          (click)="
+                            $event.stopPropagation(); moveMedia(media, 1)
+                          "
+                          aria-label="Déplacer à droite"
+                        >
+                          →
+                        </button>
+                        @if (media.media_type === "photo") {
+                          <button
+                            class="media-use"
+                            (click)="
+                              $event.stopPropagation();
+                              toggleMediaSelection(media)
+                            "
+                          >
+                            {{
+                              media.selected === false
+                                ? "＋ Utiliser"
+                                : "✓ Incluse"
+                            }}</button
+                          ><button
+                            class="media-cover-action"
+                            [disabled]="
+                              media.id === journal.coverMediaId ||
+                              media.selected === false
+                            "
+                            (click)="
+                              $event.stopPropagation(); selectCover(media)
+                            "
+                          >
+                            Couverture
+                          </button>
+                        }
+                      </div>
+                      @if (media.media_type === "photo") {
+                        <label
+                          class="media-caption"
+                          (click)="$event.stopPropagation()"
+                          ><span>Légende</span
+                          ><input
+                            [(ngModel)]="media.caption"
+                            (ngModelChange)="scheduleMediaCaption(media)"
+                            [ngModelOptions]="{ standalone: true }"
+                            maxlength="140"
+                            placeholder="Ce que cette photo raconte…"
+                        /></label>
+                      }
                     </div>
                   }
                 </div>
               }
-              @if (journalStep === 1) { <div class="quick-add-hint"><span>↔</span><p><b>Choisis et organise tes souvenirs</b><small>Glisse les médias pour les réordonner. Sur mobile, utilise les flèches.</small></p></div><button class="primary wide quick-next" (click)="setJournalStep(2)">{{ journalMedia.length ? 'Continuer avec ' + journalMedia.length + ' souvenir' + (journalMedia.length > 1 ? 's' : '') : 'Continuer sans photo' }} →</button> }
+              @if (journalStep === 1) {
+                <div class="quick-add-hint">
+                  <span>↔</span>
+                  <p>
+                    <b>Choisis et organise tes souvenirs</b
+                    ><small
+                      >Glisse les médias pour les réordonner. Sur mobile,
+                      utilise les flèches.</small
+                    >
+                  </p>
+                </div>
+                <button
+                  class="primary wide quick-next"
+                  (click)="setJournalStep(2)"
+                >
+                  {{
+                    journalMedia.length
+                      ? "Continuer avec " +
+                        journalMedia.length +
+                        " souvenir" +
+                        (journalMedia.length > 1 ? "s" : "")
+                      : "Continuer sans photo"
+                  }}
+                  →
+                </button>
+              }
               <label
                 >Ton récit écrit ou retranscrit<textarea
                   class="story-input"
@@ -762,8 +1406,34 @@
                     : "✨ Générer ma journée"
                 }}
               </button>
-              @if (generating || aiProgress) { <div class="ai-progress" [class.complete]="aiProgress === 100"><div><span>{{ aiStage }}</span><b>{{ aiProgress }}%</b></div><i><span [style.width.%]="aiProgress"></span></i><ol><li [class.done]="aiProgress >= 18">Transcription terminée</li><li [class.done]="aiProgress >= 35">Événements identifiés</li><li [class.done]="aiProgress >= 58">Lieux détectés</li><li [class.done]="aiProgress >= 78">Carnet en création</li></ol></div> }
-              @if (actionError?.scope === 'ai') { <div class="inline-feedback error"><span>La génération a été interrompue.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Réessayer</button></div> }
+              @if (generating || aiProgress) {
+                <div class="ai-progress" [class.complete]="aiProgress === 100">
+                  <div>
+                    <span>{{ aiStage }}</span
+                    ><b>{{ aiProgress }}%</b>
+                  </div>
+                  <i><span [style.width.%]="aiProgress"></span></i>
+                  <ol>
+                    <li [class.done]="aiProgress >= 18">
+                      Transcription terminée
+                    </li>
+                    <li [class.done]="aiProgress >= 35">
+                      Événements identifiés
+                    </li>
+                    <li [class.done]="aiProgress >= 58">Lieux détectés</li>
+                    <li [class.done]="aiProgress >= 78">Carnet en création</li>
+                  </ol>
+                </div>
+              }
+              @if (actionError?.scope === "ai") {
+                <div class="inline-feedback error">
+                  <span
+                    >La génération a été interrompue.<small>{{
+                      actionError?.message
+                    }}</small></span
+                  ><button (click)="retryLastAction()">Réessayer</button>
+                </div>
+              }
             </div>
             @if (journal.title || journal.events.length) {
               <div
@@ -776,7 +1446,10 @@
                 [class.timeline-layout]="journal.layout === 'timeline'"
               >
                 <div class="generated-toolbar">
-                  <span class="eyebrow">Aperçu en direct · chaque modification est enregistrée</span>
+                  <span class="eyebrow"
+                    >Aperçu en direct · chaque modification est
+                    enregistrée</span
+                  >
                   <div class="layout-switch">
                     <button
                       [class.active]="journal.layout === 'scrapbook'"
@@ -802,15 +1475,190 @@
                     {{ journalEditing ? "Aperçu" : "Personnaliser" }}
                   </button>
                 </div>
-                <section class="scrapbook-studio" [class.open]="designPanelOpen">
-                  <button class="studio-toggle" (click)="designPanelOpen=!designPanelOpen"><span><b>✦ Studio scrapbook</b><small>Crée une page qui ne ressemble qu’à toi</small></span><i>{{ designPanelOpen ? '−' : '+' }}</i></button>
-                  @if (designPanelOpen) { <div class="studio-body">
-                    <div class="studio-heading"><span>{{ journal.design.style }} · {{ journal.design.palette }}</span><button (click)="randomizeScrapbook()">⚄ Surprise-moi</button></div>
-                    <div class="studio-group"><label>Univers</label><div class="visual-options styles"><button [class.active]="journal.design.style==='wanderlust'" (click)="setScrapbookOption('style','wanderlust')"><i>✈</i><span>Wanderlust</span></button><button [class.active]="journal.design.style==='retro'" (click)="setScrapbookOption('style','retro')"><i>◉</i><span>Rétro pop</span></button><button [class.active]="journal.design.style==='botanical'" (click)="setScrapbookOption('style','botanical')"><i>❀</i><span>Botanique</span></button><button [class.active]="journal.design.style==='nocturne'" (click)="setScrapbookOption('style','nocturne')"><i>☾</i><span>Nocturne</span></button></div></div>
-                    <div class="studio-group"><label>Palette</label><div class="palette-options"><button class="palette-candy" [class.active]="journal.design.palette==='candy'" (click)="setScrapbookOption('palette','candy')"><i></i><span>Candy</span></button><button class="palette-sunset" [class.active]="journal.design.palette==='sunset'" (click)="setScrapbookOption('palette','sunset')"><i></i><span>Sunset</span></button><button class="palette-ocean" [class.active]="journal.design.palette==='ocean'" (click)="setScrapbookOption('palette','ocean')"><i></i><span>Océan</span></button><button class="palette-forest" [class.active]="journal.design.palette==='forest'" (click)="setScrapbookOption('palette','forest')"><i></i><span>Forêt</span></button><button class="palette-mono" [class.active]="journal.design.palette==='mono'" (click)="setScrapbookOption('palette','mono')"><i></i><span>Mono</span></button><button class="palette-lavender" [class.active]="journal.design.palette==='lavender'" (click)="setScrapbookOption('palette','lavender')"><i></i><span>Lavande</span></button></div></div>
-                    <div class="custom-colors"><label><span>Accent personnalisé</span><input type="color" [ngModel]="journal.design.customAccent || '#7b2dce'" (ngModelChange)="setScrapbookOption('customAccent',$event)"><button (click)="setScrapbookOption('customAccent','')">Réinitialiser</button></label><label><span>Couleur du papier</span><input type="color" [ngModel]="journal.design.customPaper || '#fff9e9'" (ngModelChange)="setScrapbookOption('customPaper',$event)"><button (click)="setScrapbookOption('customPaper','')">Réinitialiser</button></label></div>
-                    <div class="studio-columns"><div class="studio-group"><label>Papier</label><select [ngModel]="journal.design.paper" (ngModelChange)="setScrapbookOption('paper',$event)"><option value="grid">Papier quadrillé</option><option value="kraft">Kraft chaleureux</option><option value="floral">Herbier floral</option><option value="clean">Papier épuré</option></select></div><div class="studio-group"><label>Photos</label><select [ngModel]="journal.design.composition" (ngModelChange)="setScrapbookOption('composition',$event)"><option value="collage">Collage libre</option><option value="polaroid">Polaroïds</option><option value="postcard">Carte postale</option><option value="filmstrip">Pellicule photo</option></select></div><div class="studio-group"><label>Typographie</label><select [ngModel]="journal.design.font" (ngModelChange)="setScrapbookOption('font',$event)"><option value="handwritten">Manuscrite</option><option value="editorial">Éditoriale</option><option value="typewriter">Machine à écrire</option></select></div><div class="studio-group"><label>Décorations</label><select [ngModel]="journal.design.decorations" (ngModelChange)="setScrapbookOption('decorations',$event)"><option value="minimal">Discrètes</option><option value="balanced">Équilibrées</option><option value="maximal">Très créatives</option></select></div></div>
-                  </div> }
+                <section
+                  class="scrapbook-studio"
+                  [class.open]="designPanelOpen"
+                >
+                  <button
+                    class="studio-toggle"
+                    (click)="designPanelOpen = !designPanelOpen"
+                  >
+                    <span
+                      ><b>✦ Studio scrapbook</b
+                      ><small
+                        >Crée une page qui ne ressemble qu’à toi</small
+                      ></span
+                    ><i>{{ designPanelOpen ? "−" : "+" }}</i>
+                  </button>
+                  @if (designPanelOpen) {
+                    <div class="studio-body">
+                      <div class="studio-heading">
+                        <span
+                          >{{ journal.design.style }} ·
+                          {{ journal.design.palette }}</span
+                        ><button (click)="randomizeScrapbook()">
+                          ⚄ Surprends-moi
+                        </button>
+                      </div>
+                      <div class="studio-group">
+                        <label>Univers</label>
+                        <div class="visual-options styles">
+                          <button
+                            [class.active]="
+                              journal.design.style === 'wanderlust'
+                            "
+                            (click)="setScrapbookOption('style', 'wanderlust')"
+                          >
+                            <i>✈</i><span>Wanderlust</span></button
+                          ><button
+                            [class.active]="journal.design.style === 'retro'"
+                            (click)="setScrapbookOption('style', 'retro')"
+                          >
+                            <i>◉</i><span>Rétro pop</span></button
+                          ><button
+                            [class.active]="
+                              journal.design.style === 'botanical'
+                            "
+                            (click)="setScrapbookOption('style', 'botanical')"
+                          >
+                            <i>❀</i><span>Botanique</span></button
+                          ><button
+                            [class.active]="journal.design.style === 'nocturne'"
+                            (click)="setScrapbookOption('style', 'nocturne')"
+                          >
+                            <i>☾</i><span>Nocturne</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="studio-group">
+                        <label>Palette</label>
+                        <div class="palette-options">
+                          <button
+                            class="palette-candy"
+                            [class.active]="journal.design.palette === 'candy'"
+                            (click)="setScrapbookOption('palette', 'candy')"
+                          >
+                            <i></i><span>Candy</span></button
+                          ><button
+                            class="palette-sunset"
+                            [class.active]="journal.design.palette === 'sunset'"
+                            (click)="setScrapbookOption('palette', 'sunset')"
+                          >
+                            <i></i><span>Sunset</span></button
+                          ><button
+                            class="palette-ocean"
+                            [class.active]="journal.design.palette === 'ocean'"
+                            (click)="setScrapbookOption('palette', 'ocean')"
+                          >
+                            <i></i><span>Océan</span></button
+                          ><button
+                            class="palette-forest"
+                            [class.active]="journal.design.palette === 'forest'"
+                            (click)="setScrapbookOption('palette', 'forest')"
+                          >
+                            <i></i><span>Forêt</span></button
+                          ><button
+                            class="palette-mono"
+                            [class.active]="journal.design.palette === 'mono'"
+                            (click)="setScrapbookOption('palette', 'mono')"
+                          >
+                            <i></i><span>Mono</span></button
+                          ><button
+                            class="palette-lavender"
+                            [class.active]="
+                              journal.design.palette === 'lavender'
+                            "
+                            (click)="setScrapbookOption('palette', 'lavender')"
+                          >
+                            <i></i><span>Lavande</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="custom-colors">
+                        <label
+                          ><span>Accent personnalisé</span
+                          ><input
+                            type="color"
+                            [ngModel]="journal.design.customAccent || '#7b2dce'"
+                            (ngModelChange)="
+                              setScrapbookOption('customAccent', $event)
+                            "
+                          /><button
+                            (click)="setScrapbookOption('customAccent', '')"
+                          >
+                            Réinitialiser
+                          </button></label
+                        ><label
+                          ><span>Couleur du papier</span
+                          ><input
+                            type="color"
+                            [ngModel]="journal.design.customPaper || '#fff9e9'"
+                            (ngModelChange)="
+                              setScrapbookOption('customPaper', $event)
+                            "
+                          /><button
+                            (click)="setScrapbookOption('customPaper', '')"
+                          >
+                            Réinitialiser
+                          </button></label
+                        >
+                      </div>
+                      <div class="studio-columns">
+                        <div class="studio-group">
+                          <label>Papier</label
+                          ><select
+                            [ngModel]="journal.design.paper"
+                            (ngModelChange)="
+                              setScrapbookOption('paper', $event)
+                            "
+                          >
+                            <option value="grid">Papier quadrillé</option>
+                            <option value="kraft">Kraft chaleureux</option>
+                            <option value="floral">Herbier floral</option>
+                            <option value="clean">Papier épuré</option>
+                          </select>
+                        </div>
+                        <div class="studio-group">
+                          <label>Photos</label
+                          ><select
+                            [ngModel]="journal.design.composition"
+                            (ngModelChange)="
+                              setScrapbookOption('composition', $event)
+                            "
+                          >
+                            <option value="collage">Collage libre</option>
+                            <option value="polaroid">Polaroïds</option>
+                            <option value="postcard">Carte postale</option>
+                            <option value="filmstrip">Pellicule photo</option>
+                          </select>
+                        </div>
+                        <div class="studio-group">
+                          <label>Typographie</label
+                          ><select
+                            [ngModel]="journal.design.font"
+                            (ngModelChange)="setScrapbookOption('font', $event)"
+                          >
+                            <option value="handwritten">Manuscrite</option>
+                            <option value="editorial">Éditoriale</option>
+                            <option value="typewriter">Machine à écrire</option>
+                          </select>
+                        </div>
+                        <div class="studio-group">
+                          <label>Décorations</label
+                          ><select
+                            [ngModel]="journal.design.decorations"
+                            (ngModelChange)="
+                              setScrapbookOption('decorations', $event)
+                            "
+                          >
+                            <option value="minimal">Discrètes</option>
+                            <option value="balanced">Équilibrées</option>
+                            <option value="maximal">Très créatives</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  }
                 </section>
                 <div class="paper-details">
                   <span class="tape"></span
@@ -846,7 +1694,12 @@
                 <div class="event-list">
                   @for (
                     event of journal.events;
-                    track (event.id || event.order || event.event_order || 'event') + '-' + $index;
+                    track (event.id ||
+                      event.order ||
+                      event.event_order ||
+                      "event") +
+                      "-" +
+                      $index;
                     let index = $index
                   ) {
                     <article class="journal-event">
@@ -883,13 +1736,15 @@
                   }
                 </div>
                 <div class="publish-actions">
-                  <button class="film-day-button" (click)="openVideoStudio(selectedDay)">▶ Transformer cette journée en film</button>
+                  <button
+                    class="film-day-button"
+                    (click)="openVideoStudio(selectedDay)"
+                  >
+                    ▶ Transformer cette journée en film
+                  </button>
                   <button class="secondary" (click)="saveJournal(false)">
                     Enregistrer le brouillon</button
-                  ><button
-                    class="primary"
-                    (click)="completeJournalDay()"
-                  >
+                  ><button class="primary" (click)="completeJournalDay()">
                     Terminer cette journée ✦
                   </button>
                 </div>
@@ -906,7 +1761,10 @@
                   📍 Les lieux détectés apparaîtront ici.
                 </div>
               }
-              @for (place of journal.places; track (place.visitId || place.id || place.name) + '-' + $index) {
+              @for (
+                place of journal.places;
+                track (place.visitId || place.id || place.name) + "-" + $index
+              ) {
                 <div
                   class="place-suggestion"
                   [class.resolved]="place.status === 'rejected'"
@@ -916,15 +1774,58 @@
                     >{{ place.city || selectedTrip.country }} ·
                     {{ place.category }}</small
                   >
-                  @if (place.confidence != null) { <div class="place-confidence" [class.low]="place.confidence < .78"><i [style.width.%]="place.confidence * 100"></i><span>{{ place.confidence < .78 ? 'Suggestion incertaine' : 'Suggestion probable' }} · {{ place.confidence * 100 | number:'1.0-0' }}%</span></div> }
+                  @if (place.confidence != null) {
+                    <div
+                      class="place-confidence"
+                      [class.low]="place.confidence < 0.78"
+                    >
+                      <i [style.width.%]="place.confidence * 100"></i
+                      ><span
+                        >{{
+                          place.confidence < 0.78
+                            ? "Suggestion incertaine"
+                            : "Suggestion probable"
+                        }}
+                        · {{ place.confidence * 100 | number: "1.0-0" }}%</span
+                      >
+                    </div>
+                  }
                   @if (!place.status || place.status === "pending") {
                     <div>
-                      <button [disabled]="place.resolving" (click)="confirmPlace(place, true)">
-                        {{ place.resolving ? 'Recherche…' : '✓ C’est bien ça' }}</button
+                      <button
+                        [disabled]="place.resolving"
+                        (click)="confirmPlace(place, true)"
+                      >
+                        {{
+                          place.resolving ? "Recherche…" : "✓ C’est bien ça"
+                        }}</button
                       ><button (click)="confirmPlace(place, false)">✕</button>
                     </div>
                     @if (place.matches?.length) {
-                      <div class="place-matches"><span>Choisis le lieu exact :</span>@for (match of place.matches; track (match.providerPlaceId || match.existingPlaceId || match.name || 'match') + '-' + $index) { <button class="place-match" (click)="choosePlace(place,match)"><b>{{ match.name }}</b><small>{{ match.formatted }}</small><i>📍 {{ match.latitude | number:'1.3-3' }}, {{ match.longitude | number:'1.3-3' }}</i></button> }</div>
+                      <div class="place-matches">
+                        <span>Choisis le lieu exact :</span>
+                        @for (
+                          match of place.matches;
+                          track (match.providerPlaceId ||
+                            match.existingPlaceId ||
+                            match.name ||
+                            "match") +
+                            "-" +
+                            $index
+                        ) {
+                          <button
+                            class="place-match"
+                            (click)="choosePlace(place, match)"
+                          >
+                            <b>{{ match.name }}</b
+                            ><small>{{ match.formatted }}</small
+                            ><i
+                              >📍 {{ match.latitude | number: "1.3-3" }},
+                              {{ match.longitude | number: "1.3-3" }}</i
+                            >
+                          </button>
+                        }
+                      </div>
                     }
                   } @else if (place.status === "confirmed") {
                     <span>✓ Lieu confirmé</span>
@@ -954,7 +1855,13 @@
             </div>
             <div class="paper-card expense-panel">
               <span class="eyebrow">Dépenses</span>
-              <h3>{{editingExpenseId ? 'Modifier la dépense' : 'Ajouter une dépense'}}</h3>
+              <h3>
+                {{
+                  editingExpenseId
+                    ? "Modifier la dépense"
+                    : "Ajouter une dépense"
+                }}
+              </h3>
               <select [(ngModel)]="expense.category">
                 <option>Restauration</option>
                 <option>Café</option>
@@ -987,11 +1894,29 @@
                     placeholder="Montant converti"
                 /></label>
               }
-              <button class="secondary wide" [disabled]="expenseSaving" (click)="addExpense()">
-                {{expenseSaving ? 'Enregistrement…' : editingExpenseId ? 'Enregistrer les modifications' : '＋ Ajouter'}}
+              <button
+                class="secondary wide"
+                [disabled]="expenseSaving"
+                (click)="addExpense()"
+              >
+                {{
+                  expenseSaving
+                    ? "Enregistrement…"
+                    : editingExpenseId
+                      ? "Enregistrer les modifications"
+                      : "＋ Ajouter"
+                }}
               </button>
             </div>
-              @if(editingExpenseId){<button class="text-link wide" [disabled]="expenseSaving" (click)="cancelExpenseEdit()">Annuler la modification</button>}
+            @if (editingExpenseId) {
+              <button
+                class="text-link wide"
+                [disabled]="expenseSaving"
+                (click)="cancelExpenseEdit()"
+              >
+                Annuler la modification
+              </button>
+            }
             <div class="privacy-note">
               🔒 Tes notes et brouillons restent privés tant que tu ne publies
               pas la journée.
@@ -1020,27 +1945,140 @@
             <button (click)="runTravelSearch()">Rechercher</button>
           </div>
           <div class="smart-filters">
-            <label>Mois<select [(ngModel)]="searchFilters.month"><option [ngValue]="0">Toute l’année</option>@for(month of months.slice(1);track month){<option [ngValue]="$index+1">{{month}}</option>}</select></label>
-            <label>Durée min<input type="number" min="1" [(ngModel)]="searchFilters.minDuration" placeholder="10 jours"></label>
-            <label>Durée max<input type="number" min="1" [(ngModel)]="searchFilters.maxDuration" placeholder="15 jours"></label>
-            <label>Budget max<input type="number" min="0" [(ngModel)]="searchFilters.maxBudget" placeholder="2 000 €"></label>
-            <label>Type<select [(ngModel)]="searchFilters.tripType"><option value="">Tous</option><option value="city">City break</option><option value="roadtrip">Itinérant</option><option value="slow">Voyage lent</option></select></label>
-            <label>Catégorie<select [(ngModel)]="searchFilters.category"><option value="">Toutes</option><option value="restaurant">Restaurants</option><option value="cafe">Cafés</option><option value="activity">Activités</option><option value="accommodation">Hébergements</option></select></label>
-            <label class="check-filter"><input type="checkbox" [(ngModel)]="searchFilters.recommendedOnly"> Recommandés seulement</label>
-            <label class="check-filter"><input type="checkbox" [(ngModel)]="searchFilters.recentOnly"> Carnets récents</label>
-            <button class="text-link" (click)="clearTravelFilters()">Effacer</button>
+            <label
+              >Mois<select [(ngModel)]="searchFilters.month">
+                <option [ngValue]="0">Toute l’année</option>
+                @for (month of months.slice(1); track month) {
+                  <option [ngValue]="$index + 1">{{ month }}</option>
+                }
+              </select></label
+            >
+            <label
+              >Durée min<input
+                type="number"
+                min="1"
+                [(ngModel)]="searchFilters.minDuration"
+                placeholder="10 jours"
+            /></label>
+            <label
+              >Durée max<input
+                type="number"
+                min="1"
+                [(ngModel)]="searchFilters.maxDuration"
+                placeholder="15 jours"
+            /></label>
+            <label
+              >Budget max<input
+                type="number"
+                min="0"
+                [(ngModel)]="searchFilters.maxBudget"
+                placeholder="2 000 €"
+            /></label>
+            <label
+              >Type<select [(ngModel)]="searchFilters.tripType">
+                <option value="">Tous</option>
+                <option value="city">City break</option>
+                <option value="roadtrip">Itinérant</option>
+                <option value="slow">Voyage lent</option>
+              </select></label
+            >
+            <label
+              >Catégorie<select [(ngModel)]="searchFilters.category">
+                <option value="">Toutes</option>
+                <option value="restaurant">Restaurants</option>
+                <option value="cafe">Cafés</option>
+                <option value="activity">Activités</option>
+                <option value="accommodation">Hébergements</option>
+              </select></label
+            >
+            <label class="check-filter"
+              ><input
+                type="checkbox"
+                [(ngModel)]="searchFilters.recommendedOnly"
+              />
+              Recommandés seulement</label
+            >
+            <label class="check-filter"
+              ><input type="checkbox" [(ngModel)]="searchFilters.recentOnly" />
+              Carnets récents</label
+            >
+            <button class="text-link" (click)="clearTravelFilters()">
+              Effacer
+            </button>
           </div>
           <div class="legacy-filters" hidden>
-            <label>Durée<select [(ngModel)]="exploreDuration"><option value="all">Toutes</option><option value="short">1 à 5 jours</option><option value="medium">6 à 14 jours</option><option value="long">15 jours et plus</option></select></label>
-            <label>Saison<select [(ngModel)]="exploreSeason"><option value="all">Toutes</option><option value="spring">Printemps</option><option value="summer">Été</option><option value="autumn">Automne</option><option value="winter">Hiver</option></select></label>
-            <label>Type<select [(ngModel)]="exploreType"><option value="all">Tous</option><option value="city">City break</option><option value="roadtrip">Itinérant</option><option value="slow">Voyage lent</option></select></label>
+            <label
+              >Durée<select [(ngModel)]="exploreDuration">
+                <option value="all">Toutes</option>
+                <option value="short">1 à 5 jours</option>
+                <option value="medium">6 à 14 jours</option>
+                <option value="long">15 jours et plus</option>
+              </select></label
+            >
+            <label
+              >Saison<select [(ngModel)]="exploreSeason">
+                <option value="all">Toutes</option>
+                <option value="spring">Printemps</option>
+                <option value="summer">Été</option>
+                <option value="autumn">Automne</option>
+                <option value="winter">Hiver</option>
+              </select></label
+            >
+            <label
+              >Type<select [(ngModel)]="exploreType">
+                <option value="all">Tous</option>
+                <option value="city">City break</option>
+                <option value="roadtrip">Itinérant</option>
+                <option value="slow">Voyage lent</option>
+              </select></label
+            >
           </div>
         </div>
         @if (searchPerformed || exploreSearch || searchFilters.month) {
           <section class="search-overview">
-            <div class="result-summary"><b>{{searchResults.trips?.length || 0}}</b> voyages · <b>{{searchResults.destinations?.length || 0}}</b> destinations · <b>{{searchResults.places?.length || 0}}</b> lieux</div>
-            @if(searchResults.destinations?.length){<div class="entity-strip">@for(item of searchResults.destinations;track item.id){<button class="entity-card" (click)="openDestination(item)"><span>{{item.type === 'country' ? '🌍' : '⌖'}}</span><b>{{item.city_name || item.country_name}}</b><small>{{item.public_trip_count}} carnets · {{item.recommended_place_count}} bonnes adresses</small></button>}</div>}
-            @if(searchResults.places?.length){<div class="place-results"><h3>Lieux trouvés</h3>@for(item of searchResults.places;track item.id){<button (click)="openPlace(item)"><span>{{item.category === 'restaurant' ? '🍜' : item.category === 'cafe' ? '☕' : '✦'}}</span><div><b>{{item.name}}</b><small>{{item.city}} · {{item.recommendation_count}} recommandations</small></div><i>{{item.recommendation_rate || 0}}%</i></button>}</div>}
+            <div class="result-summary">
+              <b>{{ searchResults.trips?.length || 0 }}</b> voyages ·
+              <b>{{ searchResults.destinations?.length || 0 }}</b> destinations
+              · <b>{{ searchResults.places?.length || 0 }}</b> lieux
+            </div>
+            @if (searchResults.destinations?.length) {
+              <div class="entity-strip">
+                @for (item of searchResults.destinations; track item.id) {
+                  <button class="entity-card" (click)="openDestination(item)">
+                    <span>{{ item.type === "country" ? "🌍" : "⌖" }}</span
+                    ><b>{{ item.city_name || item.country_name }}</b
+                    ><small
+                      >{{ item.public_trip_count }} carnets ·
+                      {{ item.recommended_place_count }} bonnes adresses</small
+                    >
+                  </button>
+                }
+              </div>
+            }
+            @if (searchResults.places?.length) {
+              <div class="place-results">
+                <h3>Lieux trouvés</h3>
+                @for (item of searchResults.places; track item.id) {
+                  <button (click)="openPlace(item)">
+                    <span>{{
+                      item.category === "restaurant"
+                        ? "🍜"
+                        : item.category === "cafe"
+                          ? "☕"
+                          : "✦"
+                    }}</span>
+                    <div>
+                      <b>{{ item.name }}</b
+                      ><small
+                        >{{ item.city }} ·
+                        {{ item.recommendation_count }} recommandations</small
+                      >
+                    </div>
+                    <i>{{ item.recommendation_rate || 0 }}%</i>
+                  </button>
+                }
+              </div>
+            }
           </section>
         }
         <div class="section-head">
@@ -1049,63 +2087,317 @@
             <h3>{{ filteredPublicTrips.length }} voyages à découvrir</h3>
           </div>
         </div>
-        @if (actionError?.scope === 'explore') { <div class="inline-feedback error"><span>Impossible de charger les voyages.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Réessayer</button></div> }
+        @if (actionError?.scope === "explore") {
+          <div class="inline-feedback error">
+            <span
+              >Impossible de charger les voyages.<small>{{
+                actionError?.message
+              }}</small></span
+            ><button (click)="retryLastAction()">Réessayer</button>
+          </div>
+        }
         <div class="public-grid">
-          @if (exploreLoading) { @for (placeholder of [1,2,3,4,5,6]; track placeholder) { <article class="public-card skeleton-card"><div class="skeleton skeleton-cover"></div><div><i class="skeleton skeleton-avatar"></i><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line short"></span></div></article> } } @else { @for (item of filteredPublicTrips; track (item.slug || item.snapshot?.trip?.id || 'trip') + '-' + $index) {
-            <article
-              class="public-card"
-              [class.scrapbook-card]="item.snapshot.design === 'scrapbook'"
-              [class.atlas-card]="item.snapshot.design === 'atlas'"
-              (click)="openPublicTrip(item)"
-            >
-              <div
-                class="public-cover"
-                [style.background-image]="
-                  item.snapshot.photos?.length
-                    ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' +
-                      item.snapshot.photos[0] +
-                      ')'
-                    : ''
-                "
+          @if (exploreLoading) {
+            @for (placeholder of [1, 2, 3, 4, 5, 6]; track placeholder) {
+              <article class="public-card skeleton-card">
+                <div class="skeleton skeleton-cover"></div>
+                <div>
+                  <i class="skeleton skeleton-avatar"></i
+                  ><span class="skeleton skeleton-line"></span
+                  ><span class="skeleton skeleton-line short"></span>
+                </div>
+              </article>
+            }
+          } @else {
+            @for (
+              item of filteredPublicTrips;
+              track (item.slug || item.snapshot?.trip?.id || "trip") +
+                "-" +
+                $index
+            ) {
+              <article
+                class="public-card"
+                [class.scrapbook-card]="item.snapshot.design === 'scrapbook'"
+                [class.atlas-card]="item.snapshot.design === 'atlas'"
+                (click)="openPublicTrip(item)"
               >
-                <span class="cover-country">{{
-                  item.snapshot.trip.country
-                }}</span
-                ><button class="explore-save" [class.saved]="item.snapshot.saved" (click)="toggleExploreSave($event,item)" aria-label="Enregistrer le voyage">{{ item.snapshot.saved ? '♥' : '♡' }}</button><div class="explore-cover-title"><small>{{ tripDuration(item) }} jours</small><b>{{ item.snapshot.trip.title }}</b></div><i>✦</i>
+                <div
+                  class="public-cover"
+                  [style.background-image]="
+                    item.snapshot.photos?.length
+                      ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' +
+                        item.snapshot.photos[0] +
+                        ')'
+                      : ''
+                  "
+                >
+                  <span class="cover-country">{{
+                    item.snapshot.trip.country
+                  }}</span
+                  ><button
+                    class="explore-save"
+                    [class.saved]="item.snapshot.saved"
+                    (click)="toggleExploreSave($event, item)"
+                    aria-label="Enregistrer le voyage"
+                  >
+                    {{ item.snapshot.saved ? "♥" : "♡" }}
+                  </button>
+                  <div class="explore-cover-title">
+                    <small>{{ tripDuration(item) }} jours</small
+                    ><b>{{ item.snapshot.trip.title }}</b>
+                  </div>
+                  <i>✦</i>
+                </div>
+                <div class="explore-card-body">
+                  <div class="explore-author">
+                    <div class="mini-community-avatar">
+                      {{
+                        (
+                          item.snapshot.author.firstname ||
+                          item.snapshot.author.username ||
+                          "V"
+                        ).charAt(0)
+                      }}
+                    </div>
+                    <p>
+                      <b>{{
+                        item.snapshot.author.firstname ||
+                          item.snapshot.author.username
+                      }}</b
+                      ><small>&#64;{{ item.snapshot.author.username }}</small>
+                    </p>
+                  </div>
+                  @if (tripCities(item).length) {
+                    <div class="explore-route">
+                      @for (city of tripCities(item); track city) {
+                        <span>{{ city }}</span>
+                      }
+                    </div>
+                  }
+                  <div class="explore-metrics">
+                    <span
+                      ><b>{{ item.snapshot.stats.days }}</b> jours</span
+                    ><span
+                      ><b>{{ item.snapshot.stats.photos }}</b> photos</span
+                    ><span
+                      ><b>{{ recommendationCount(item) }}</b>
+                      recommandations</span
+                    ><span class="like-metric"
+                      >♥ {{ item.snapshot.likes || 0 }}</span
+                    >
+                  </div>
+                </div>
+              </article>
+            } @empty {
+              <div class="empty-state paper-card">
+                <span>🗺️</span>
+                <h3>Aucun carnet trouvé</h3>
+                <p>Essaie un autre pays ou une autre ville.</p>
               </div>
-              <div class="explore-card-body">
-                <div class="explore-author"><div class="mini-community-avatar">{{ (item.snapshot.author.firstname || item.snapshot.author.username || 'V').charAt(0) }}</div><p><b>{{ item.snapshot.author.firstname || item.snapshot.author.username }}</b><small>&#64;{{ item.snapshot.author.username }}</small></p></div>
-                @if (tripCities(item).length) { <div class="explore-route">@for (city of tripCities(item); track city) { <span>{{ city }}</span> }</div> }
-                <div class="explore-metrics"><span><b>{{ item.snapshot.stats.days }}</b> jours</span><span><b>{{ item.snapshot.stats.photos }}</b> photos</span><span><b>{{ recommendationCount(item) }}</b> recommandations</span><span class="like-metric">♥ {{ item.snapshot.likes || 0 }}</span></div>
-              </div>
-            </article>
-          } @empty {
-            <div class="empty-state paper-card">
-              <span>🗺️</span>
-              <h3>Aucun carnet trouvé</h3>
-              <p>Essaie un autre pays ou une autre ville.</p>
-            </div>
-          } }
+            }
+          }
         </div>
       </section>
     }
 
     @if (screen === "destination" && destination) {
-      <section class="page destination-page"><button class="back" (click)="go('explore')">← Recherche</button>
-        <header class="destination-hero"><span>{{destination.destination.type === 'country' ? '🌍 Destination' : '⌖ Ville'}}</span><h1>{{destination.destination.city_name || destination.destination.country_name}}</h1><p>{{destination.stats.public_trip_count}} carnets publics · durée moyenne {{destination.stats.average_duration || '—'}} jours</p></header>
-        <div class="destination-grid"><section class="paper-card"><h3>Quand les voyageurs y vont</h3><div class="month-chart">@for(month of months.slice(1);track month){<div><span>{{month.slice(0,3)}}</span><i><b [style.height.%]="monthBar(destination.stats.month_distribution?.[$index+1],destination.stats.public_trip_count)"></b></i><small>{{destination.stats.month_distribution?.[$index+1] || 0}}</small></div>}</div></section>
-        <section class="paper-card stat-callout"><span>Budget communautaire</span><b>{{destination.stats.public_budget_average ? (destination.stats.public_budget_average | currency:'EUR':'symbol':'1.0-0':'fr') : 'Non disponible'}}</b><small>Uniquement les budgets partagés anonymement</small></section></div>
-        @if(destination.routes?.length){<div class="section-head"><div><span class="eyebrow">Itinéraires observés</span><h3>Chemins empruntés</h3></div></div><div class="route-list">@for(route of destination.routes;track (route.route || 'route') + '-' + $index){<span>{{route.route}} <small>{{route.trip_count}} voyage(s)</small></span>}</div>}
-        @if(destination.places?.length){<div class="section-head"><div><span class="eyebrow">Adresses de la communauté</span><h3>Lieux recommandés</h3></div></div><div class="place-results">@for(place of destination.places;track place.id){<button (click)="openPlace(place)"><span>{{place.category === 'restaurant' ? '🍜' : place.category === 'cafe' ? '☕' : '✦'}}</span><div><b>{{place.name}}</b><small>{{place.visit_count}} visites · {{place.recommendation_count}} recommandations</small></div><i>→</i></button>}</div>}
-        @if(destination.advice?.length){<div class="section-head"><div><span class="eyebrow">À savoir avant de partir</span><h3>Conseils voyageurs</h3></div></div><div class="advice-grid">@for(advice of destination.advice;track advice.id){<blockquote><p>“{{advice.advice_text}}”</p><small>{{advice.recommend_destination === 'yes' ? '♥ Destination recommandée' : 'Avis mitigé'}} · {{advice.recommended_duration}} jours conseillés</small></blockquote>}</div>}
-        <div class="section-head"><div><span class="eyebrow">Les sources</span><h3>Carnets derrière ces données</h3></div></div><div class="source-trips">@for(trip of destination.trips;track trip.trip_id){<button (click)="openPublicTrip(searchTripPublication(trip.trip_id))"><b>{{trip.title}}</b><small>{{trip.duration_days}} jours · {{months[trip.start_month]}}</small></button>}</div>
+      <section class="page destination-page">
+        <button class="back" (click)="go('explore')">← Recherche</button>
+        <header class="destination-hero">
+          <span>{{
+            destination.destination.type === "country"
+              ? "🌍 Destination"
+              : "⌖ Ville"
+          }}</span>
+          <h1>
+            {{
+              destination.destination.city_name ||
+                destination.destination.country_name
+            }}
+          </h1>
+          <p>
+            {{ destination.stats.public_trip_count }} carnets publics · durée
+            moyenne {{ destination.stats.average_duration || "—" }} jours
+          </p>
+        </header>
+        <div class="destination-grid">
+          <section class="paper-card">
+            <h3>Quand les voyageurs y vont</h3>
+            <div class="month-chart">
+              @for (month of months.slice(1); track month) {
+                <div>
+                  <span>{{ month.slice(0, 3) }}</span
+                  ><i
+                    ><b
+                      [style.height.%]="
+                        monthBar(
+                          destination.stats.month_distribution?.[$index + 1],
+                          destination.stats.public_trip_count
+                        )
+                      "
+                    ></b></i
+                  ><small>{{
+                    destination.stats.month_distribution?.[$index + 1] || 0
+                  }}</small>
+                </div>
+              }
+            </div>
+          </section>
+          <section class="paper-card stat-callout">
+            <span>Budget communautaire</span
+            ><b>{{
+              destination.stats.public_budget_average
+                ? (destination.stats.public_budget_average
+                  | currency: "EUR" : "symbol" : "1.0-0" : "fr")
+                : "Non disponible"
+            }}</b
+            ><small>Uniquement les budgets partagés anonymement</small>
+          </section>
+        </div>
+        @if (destination.routes?.length) {
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Itinéraires observés</span>
+              <h3>Chemins empruntés</h3>
+            </div>
+          </div>
+          <div class="route-list">
+            @for (
+              route of destination.routes;
+              track (route.route || "route") + "-" + $index
+            ) {
+              <span
+                >{{ route.route }}
+                <small>{{ route.trip_count }} voyage(s)</small></span
+              >
+            }
+          </div>
+        }
+        @if (destination.places?.length) {
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Adresses de la communauté</span>
+              <h3>Lieux recommandés</h3>
+            </div>
+          </div>
+          <div class="place-results">
+            @for (place of destination.places; track place.id) {
+              <button (click)="openPlace(place)">
+                <span>{{
+                  place.category === "restaurant"
+                    ? "🍜"
+                    : place.category === "cafe"
+                      ? "☕"
+                      : "✦"
+                }}</span>
+                <div>
+                  <b>{{ place.name }}</b
+                  ><small
+                    >{{ place.visit_count }} visites ·
+                    {{ place.recommendation_count }} recommandations</small
+                  >
+                </div>
+                <i>→</i>
+              </button>
+            }
+          </div>
+        }
+        @if (destination.advice?.length) {
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">À savoir avant de partir</span>
+              <h3>Conseils voyageurs</h3>
+            </div>
+          </div>
+          <div class="advice-grid">
+            @for (advice of destination.advice; track advice.id) {
+              <blockquote>
+                <p>“{{ advice.advice_text }}”</p>
+                <small
+                  >{{
+                    advice.recommend_destination === "yes"
+                      ? "♥ Destination recommandée"
+                      : "Avis mitigé"
+                  }}
+                  · {{ advice.recommended_duration }} jours conseillés</small
+                >
+              </blockquote>
+            }
+          </div>
+        }
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Les sources</span>
+            <h3>Carnets derrière ces données</h3>
+          </div>
+        </div>
+        <div class="source-trips">
+          @for (trip of destination.trips; track trip.trip_id) {
+            <button
+              (click)="openPublicTrip(searchTripPublication(trip.trip_id))"
+            >
+              <b>{{ trip.title }}</b
+              ><small
+                >{{ trip.duration_days }} jours ·
+                {{ months[trip.start_month] }}</small
+              >
+            </button>
+          }
+        </div>
       </section>
     }
 
-    @if (screen === "place" && selectedPlace) {<section class="page place-page"><button class="back" (click)="go('explore')">← Recherche</button><div class="place-detail paper-card"><span class="eyebrow">{{selectedPlace.place.category}} · {{selectedPlace.place.city}}</span><h1>{{selectedPlace.place.name}}</h1><div class="place-score"><b>{{selectedPlace.stats.recommendation_rate || 0}}%</b><span>recommandé par la communauté</span></div><div class="place-numbers"><span><b>{{selectedPlace.stats.visit_count}}</b> visites</span><span><b>{{selectedPlace.stats.like_count}}</b> coups de cœur</span><span><b>{{selectedPlace.stats.non_recommendation_count}}</b> avis négatifs</span></div></div><div class="section-head"><div><span class="eyebrow">Expériences réelles</span><h3>Voyages où ce lieu apparaît</h3></div></div><div class="source-trips">@for(trip of selectedPlace.trips;track trip.trip_id){<button (click)="openPublicTrip(searchTripPublication(trip.trip_id))"><b>{{trip.title}}</b><small>{{trip.country_name}} · {{months[trip.start_month]}}</small></button>}</div></section>}
+    @if (screen === "place" && selectedPlace) {
+      <section class="page place-page">
+        <button class="back" (click)="go('explore')">← Recherche</button>
+        <div class="place-detail paper-card">
+          <span class="eyebrow"
+            >{{ selectedPlace.place.category }} ·
+            {{ selectedPlace.place.city }}</span
+          >
+          <h1>{{ selectedPlace.place.name }}</h1>
+          <div class="place-score">
+            <b>{{ selectedPlace.stats.recommendation_rate || 0 }}%</b
+            ><span>recommandé par la communauté</span>
+          </div>
+          <div class="place-numbers">
+            <span
+              ><b>{{ selectedPlace.stats.visit_count }}</b> visites</span
+            ><span
+              ><b>{{ selectedPlace.stats.like_count }}</b> coups de cœur</span
+            ><span
+              ><b>{{ selectedPlace.stats.non_recommendation_count }}</b> avis
+              négatifs</span
+            >
+          </div>
+        </div>
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Expériences réelles</span>
+            <h3>Voyages où ce lieu apparaît</h3>
+          </div>
+        </div>
+        <div class="source-trips">
+          @for (trip of selectedPlace.trips; track trip.trip_id) {
+            <button
+              (click)="openPublicTrip(searchTripPublication(trip.trip_id))"
+            >
+              <b>{{ trip.title }}</b
+              ><small
+                >{{ trip.country_name }} · {{ months[trip.start_month] }}</small
+              >
+            </button>
+          }
+        </div>
+      </section>
+    }
 
     @if (screen === "public-trip" && selectedPublicTrip) {
-      <section class="page public-trip-page" [class.scrapbook-public]="selectedPublicTrip.design === 'scrapbook'" [class.atlas-public]="selectedPublicTrip.design === 'atlas'">
+      <section
+        class="page public-trip-page"
+        [class.scrapbook-public]="selectedPublicTrip.design === 'scrapbook'"
+        [class.atlas-public]="selectedPublicTrip.design === 'atlas'"
+      >
         <button class="back" (click)="openExplore()">← Explorer</button>
         <div
           class="public-trip-hero"
@@ -1127,8 +2419,26 @@
             }}
             · {{ selectedPublicTrip.stats.days }} jours
           </p>
-          <div class="public-hero-actions"><button class="hero-read-button public" (click)="openPublicReader()">Lire le carnet →</button><button class="hero-save-button" (click)="toggleSave()">{{ selectedPublicTrip.saved ? '✓ Enregistré' : '♡ Enregistrer' }}</button></div>
-          <div class="public-social-actions"><button [disabled]="publicLikeBusy" (click)="togglePublicLike()">{{ selectedPublicTrip.liked ? '♥' : '♡' }} {{ selectedPublicTrip.likes || 0 }}</button><button (click)="openCommunityProfile(selectedPublicTrip.author.id)">Profil voyageur</button><button (click)="startChat()">✉ Message</button></div>
+          <div class="public-hero-actions">
+            <button
+              class="hero-read-button public"
+              (click)="openPublicReader()"
+            >
+              Lire le carnet →</button
+            ><button class="hero-save-button" (click)="toggleSave()">
+              {{ selectedPublicTrip.saved ? "✓ Enregistré" : "♡ Enregistrer" }}
+            </button>
+          </div>
+          <div class="public-social-actions">
+            <button [disabled]="publicLikeBusy" (click)="togglePublicLike()">
+              {{ selectedPublicTrip.liked ? "♥" : "♡" }}
+              {{ selectedPublicTrip.likes || 0 }}</button
+            ><button
+              (click)="openCommunityProfile(selectedPublicTrip.author.id)"
+            >
+              Profil voyageur</button
+            ><button (click)="startChat()">✉ Message</button>
+          </div>
         </div>
         <div class="public-stats">
           <div>
@@ -1144,7 +2454,82 @@
             ><span>villes</span>
           </div>
         </div>
-        <section class="comments-section paper-card"><h3>Commentaires · {{ commentsList.length }}</h3><div class="comment-compose"><textarea [(ngModel)]="commentDraft" [disabled]="commentSending" placeholder="Partager un mot sur ce voyage…"></textarea><button class="primary" [class.button-loading]="commentSending" [disabled]="commentSending || !commentDraft.trim()" (click)="addPublicComment()"><i></i>{{ commentSending ? 'Publication…' : 'Publier' }}</button></div>@if (actionError?.scope === 'comments') { <div class="inline-feedback error"><span>Le commentaire n’a pas pu être chargé ou publié.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Réessayer</button></div> }@if (commentsLoading) { @for (placeholder of [1,2,3]; track placeholder) { <div class="comment-row skeleton-comment"><i class="skeleton skeleton-avatar"></i><div><span class="skeleton skeleton-line short"></span><span class="skeleton skeleton-line"></span></div></div> } } @else { @for (comment of commentsList; track comment.id) { <article class="comment-row"><div class="mini-community-avatar">{{ (comment.author?.firstname || comment.author?.username || 'V').charAt(0) }}</div><div><b>{{ comment.author?.firstname || comment.author?.username || 'Voyageur' }}</b>@if (comment.author?.username) { <small class="comment-username">&#64;{{ comment.author.username }}</small> }<p>{{ comment.content }}</p><small>{{ comment.created_at | date:'short' }}</small></div><div><button (click)="reportTarget('comment',comment.id)">Signaler</button>@if (comment.user_id === userId) { <button (click)="removeComment(comment.id)">Supprimer</button> }</div></article> } }</section>
+        <section class="comments-section paper-card">
+          <h3>Commentaires · {{ commentsList.length }}</h3>
+          <div class="comment-compose">
+            <textarea
+              [(ngModel)]="commentDraft"
+              [disabled]="commentSending"
+              placeholder="Partager un mot sur ce voyage…"
+            ></textarea
+            ><button
+              class="primary"
+              [class.button-loading]="commentSending"
+              [disabled]="commentSending || !commentDraft.trim()"
+              (click)="addPublicComment()"
+            >
+              <i></i>{{ commentSending ? "Publication…" : "Publier" }}
+            </button>
+          </div>
+          @if (actionError?.scope === "comments") {
+            <div class="inline-feedback error">
+              <span
+                >Le commentaire n’a pas pu être chargé ou publié.<small>{{
+                  actionError?.message
+                }}</small></span
+              ><button (click)="retryLastAction()">Réessayer</button>
+            </div>
+          }
+          @if (commentsLoading) {
+            @for (placeholder of [1, 2, 3]; track placeholder) {
+              <div class="comment-row skeleton-comment">
+                <i class="skeleton skeleton-avatar"></i>
+                <div>
+                  <span class="skeleton skeleton-line short"></span
+                  ><span class="skeleton skeleton-line"></span>
+                </div>
+              </div>
+            }
+          } @else {
+            @for (comment of commentsList; track comment.id) {
+              <article class="comment-row">
+                <div class="mini-community-avatar">
+                  {{
+                    (
+                      comment.author?.firstname ||
+                      comment.author?.username ||
+                      "V"
+                    ).charAt(0)
+                  }}
+                </div>
+                <div>
+                  <b>{{
+                    comment.author?.firstname ||
+                      comment.author?.username ||
+                      "Voyageur"
+                  }}</b>
+                  @if (comment.author?.username) {
+                    <small class="comment-username"
+                      >&#64;{{ comment.author.username }}</small
+                    >
+                  }
+                  <p>{{ comment.content }}</p>
+                  <small>{{ comment.created_at | date: "short" }}</small>
+                </div>
+                <div>
+                  <button (click)="reportTarget('comment', comment.id)">
+                    Signaler
+                  </button>
+                  @if (comment.user_id === userId) {
+                    <button (click)="removeComment(comment.id)">
+                      Supprimer
+                    </button>
+                  }
+                </div>
+              </article>
+            }
+          }
+        </section>
         <aside class="paper-card public-author">
           <div class="big-avatar">
             {{
@@ -1178,14 +2563,20 @@
         </aside>
         @if (selectedPublicTrip.photos?.length > 1) {
           <div class="public-photo-grid">
-            @for (photo of selectedPublicTrip.photos.slice(1, 7); track (photo || 'photo') + '-' + $index) {
+            @for (
+              photo of selectedPublicTrip.photos.slice(1, 7);
+              track (photo || "photo") + "-" + $index
+            ) {
               <img [src]="photo" alt="Souvenir du voyage" />
             }
           </div>
         }
         @if (selectedPublicTrip.days) {
           <div class="public-days">
-            @for (day of selectedPublicTrip.days; track (day.id || day.date || 'day') + '-' + $index) {
+            @for (
+              day of selectedPublicTrip.days;
+              track (day.id || day.date || "day") + "-" + $index
+            ) {
               <article class="paper-card">
                 <span>{{ formatDate(day.date) }}</span>
                 <h3>{{ day.title || "Une journée de voyage" }}</h3>
@@ -1202,7 +2593,10 @@
             </div>
           </div>
           <div class="place-public-grid">
-              @for (place of selectedPublicTrip.places; track (place.id || place.name) + '-' + $index) {
+            @for (
+              place of selectedPublicTrip.places;
+              track (place.id || place.name) + "-" + $index
+            ) {
               <div class="paper-card">
                 <b>{{ place.name }}</b
                 ><span>📍 {{ place.city }}</span>
@@ -1217,15 +2611,225 @@
       </section>
     }
 
-    @if (screen === "public-profile" && communityProfile) { <section class="page community-profile-page"><button class="back" (click)="openExplore()">← Explorer</button><div class="community-profile-hero paper-card"><div class="community-avatar">{{ (communityProfile.profile.firstname || communityProfile.profile.username).charAt(0) }}</div><div><span class="eyebrow">Voyageur public</span><h2>{{ communityProfile.profile.firstname || communityProfile.profile.username }}</h2><p>&#64;{{ communityProfile.profile.username }} · {{ communityProfile.profile.bio || 'Collectionne les beaux détours.' }}</p><div class="community-counts"><span><b>{{ communityProfile.countries.length }}</b> pays</span><span><b>{{ communityProfile.followers }}</b> abonnés</span><span><b>{{ communityProfile.following }}</b> abonnements</span><span><b>{{ communityProfile.publications.length }}</b> carnets</span></div></div><div class="profile-social-actions">@if (!relationship.blocked) { <button class="primary" (click)="toggleFollow()">{{ relationship.following ? '✓ Suivi(e)' : '+ Suivre' }}</button><button class="secondary" [disabled]="relationship.friendship?.status === 'pending' || relationship.friendship?.status === 'accepted'" (click)="requestFriend()">{{ relationship.friendship?.status === 'accepted' ? '✓ Amis' : relationship.friendship?.status === 'pending' ? 'Demande envoyée' : 'Ajouter en ami' }}</button><button class="secondary" (click)="startChat(communityProfile.profile.id)">Message</button> }<button class="danger-link" (click)="blockProfile()">Bloquer</button><button class="text-link" (click)="reportTarget('user',communityProfile.profile.id)">Signaler</button></div></div><div class="section-head"><div><span class="eyebrow">Passeport</span><h3>{{ communityProfile.countries.length }} pays visités</h3></div></div><div class="country-wall">@for (country of communityProfile.countries; track (country || 'country') + '-' + $index) { <button (click)="exploreCountry(country)">✦ {{ country }}</button> }</div><div class="section-head"><div><span class="eyebrow">Carnets publics</span><h3>Ses voyages</h3></div></div><div class="public-grid compact-community-grid">@for (item of communityProfile.publications; track (item.slug || item.trip_id || 'publication') + '-' + $index) { <article class="public-card scrapbook-card" (click)="openPublicTrip(item)"><div class="public-cover" [style.background-image]="item.snapshot.photos?.length ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' + item.snapshot.photos[0] + ')' : ''"><span class="cover-country">{{ item.snapshot.trip.country }}</span><b>{{ item.snapshot.trip.title }}</b></div></article> }</div></section> }
+    @if (screen === "public-profile" && communityProfile) {
+      <section class="page community-profile-page">
+        <button class="back" (click)="openExplore()">← Explorer</button>
+        <div class="community-profile-hero paper-card">
+          <div class="community-avatar">
+            {{
+              (
+                communityProfile.profile.firstname ||
+                communityProfile.profile.username
+              ).charAt(0)
+            }}
+          </div>
+          <div>
+            <span class="eyebrow">Voyageur public</span>
+            <h2>
+              {{
+                communityProfile.profile.firstname ||
+                  communityProfile.profile.username
+              }}
+            </h2>
+            <p>
+              &#64;{{ communityProfile.profile.username }} ·
+              {{
+                communityProfile.profile.bio ||
+                  "Collectionne les beaux détours."
+              }}
+            </p>
+            <div class="community-counts">
+              <span
+                ><b>{{ communityProfile.countries.length }}</b> pays</span
+              ><span
+                ><b>{{ communityProfile.followers }}</b> abonnés</span
+              ><span
+                ><b>{{ communityProfile.following }}</b> abonnements</span
+              ><span
+                ><b>{{ communityProfile.publications.length }}</b> carnets</span
+              >
+            </div>
+          </div>
+          <div class="profile-social-actions">
+            @if (!relationship.blocked) {
+              <button class="primary" (click)="toggleFollow()">
+                {{ relationship.following ? "✓ Suivi(e)" : "+ Suivre" }}</button
+              ><button
+                class="secondary"
+                [disabled]="
+                  relationship.friendship?.status === 'pending' ||
+                  relationship.friendship?.status === 'accepted'
+                "
+                (click)="requestFriend()"
+              >
+                {{
+                  relationship.friendship?.status === "accepted"
+                    ? "✓ Amis"
+                    : relationship.friendship?.status === "pending"
+                      ? "Demande envoyée"
+                      : "Ajouter en ami"
+                }}</button
+              ><button
+                class="secondary"
+                (click)="startChat(communityProfile.profile.id)"
+              >
+                Message
+              </button>
+            }
+            <button class="danger-link" (click)="blockProfile()">Bloquer</button
+            ><button
+              class="text-link"
+              (click)="reportTarget('user', communityProfile.profile.id)"
+            >
+              Signaler
+            </button>
+          </div>
+        </div>
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Passeport</span>
+            <h3>{{ communityProfile.countries.length }} pays visités</h3>
+          </div>
+        </div>
+        <div class="country-wall">
+          @for (
+            country of communityProfile.countries;
+            track (country || "country") + "-" + $index
+          ) {
+            <button (click)="exploreCountry(country)">✦ {{ country }}</button>
+          }
+        </div>
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Carnets publics</span>
+            <h3>Ses voyages</h3>
+          </div>
+        </div>
+        <div class="public-grid compact-community-grid">
+          @for (
+            item of communityProfile.publications;
+            track (item.slug || item.trip_id || "publication") + "-" + $index
+          ) {
+            <article
+              class="public-card scrapbook-card"
+              (click)="openPublicTrip(item)"
+            >
+              <div
+                class="public-cover"
+                [style.background-image]="
+                  item.snapshot.photos?.length
+                    ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' +
+                      item.snapshot.photos[0] +
+                      ')'
+                    : ''
+                "
+              >
+                <span class="cover-country">{{
+                  item.snapshot.trip.country
+                }}</span
+                ><b>{{ item.snapshot.trip.title }}</b>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+    }
 
-    @if (screen === "inspirations") { <section class="page"><div class="page-title"><div><span class="eyebrow">À garder précieusement</span><h2>Mes inspirations</h2><p>Les carnets enregistrés pour plus tard.</p></div></div><div class="public-grid compact-community-grid">@for (item of inspirationsList; track item.id) { <article class="public-card scrapbook-card" (click)="openPublicTrip(item.publication)"><div class="public-cover" [style.background-image]="item.publication.snapshot.photos?.length ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' + item.publication.snapshot.photos[0] + ')' : ''"><span class="cover-country">{{ item.publication.snapshot.trip.country }}</span><b>{{ item.publication.snapshot.trip.title }}</b></div><div><p>Par {{ item.publication.snapshot.author.firstname || item.publication.snapshot.author.username }}</p></div></article> } @empty { <div class="empty-state paper-card"><span>🔖</span><h3>Aucune inspiration</h3><button class="primary" (click)="openExplore()">Explorer</button></div> }</div></section> }
+    @if (screen === "inspirations") {
+      <section class="page">
+        <div class="page-title">
+          <div>
+            <span class="eyebrow">À garder précieusement</span>
+            <h2>Mes inspirations</h2>
+            <p>Les carnets enregistrés pour plus tard.</p>
+          </div>
+        </div>
+        <div class="public-grid compact-community-grid">
+          @for (item of inspirationsList; track item.id) {
+            <article
+              class="public-card scrapbook-card"
+              (click)="openPublicTrip(item.publication)"
+            >
+              <div
+                class="public-cover"
+                [style.background-image]="
+                  item.publication.snapshot.photos?.length
+                    ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' +
+                      item.publication.snapshot.photos[0] +
+                      ')'
+                    : ''
+                "
+              >
+                <span class="cover-country">{{
+                  item.publication.snapshot.trip.country
+                }}</span
+                ><b>{{ item.publication.snapshot.trip.title }}</b>
+              </div>
+              <div>
+                <p>
+                  Par
+                  {{
+                    item.publication.snapshot.author.firstname ||
+                      item.publication.snapshot.author.username
+                  }}
+                </p>
+              </div>
+            </article>
+          } @empty {
+            <div class="empty-state paper-card">
+              <span>🔖</span>
+              <h3>Aucune inspiration</h3>
+              <button class="primary" (click)="openExplore()">Explorer</button>
+            </div>
+          }
+        </div>
+      </section>
+    }
 
-    @defer (when screen === "inbox" || screen === "conversation" || screen === "community-settings") {
-      @if (screen === "inbox" || screen === "conversation" || screen === "community-settings") {
-        <app-messaging-domain [mode]="messagingMode" [userId]="userId" [inbox]="inboxList" [requests]="friendRequests" [messages]="messagesList" [peer]="activeConversationPeer" [loading]="screen === 'inbox' ? inboxLoading : conversationLoading" [sending]="messageSending" [actionError]="actionError" [draft]="messageDraft" [permission]="messagePermission" (settingsRequested)="go('community-settings')" (retryRequested)="retryLastAction()" (conversationRequested)="openConversation($event)" (inboxRequested)="openInbox()" (hideRequested)="hideActiveConversation()" (answerRequested)="answerFriend($event.id,$event.status)" (reportRequested)="reportTarget('message',$event)" (draftChange)="messageDraft=$event" (sendRequested)="sendChat()" (permissionChange)="messagePermission=$event" (permissionSaveRequested)="updateMessagePermission()"></app-messaging-domain>
+    @defer (
+      when screen === "inbox" || screen === "conversation" || screen === "community-settings"
+    ) {
+      @if (
+        screen === "inbox" ||
+        screen === "conversation" ||
+        screen === "community-settings"
+      ) {
+        <app-messaging-domain
+          [mode]="messagingMode"
+          [userId]="userId"
+          [inbox]="inboxList"
+          [requests]="friendRequests"
+          [messages]="messagesList"
+          [peer]="activeConversationPeer"
+          [loading]="screen === 'inbox' ? inboxLoading : conversationLoading"
+          [sending]="messageSending"
+          [actionError]="actionError"
+          [draft]="messageDraft"
+          [permission]="messagePermission"
+          (settingsRequested)="go('community-settings')"
+          (retryRequested)="retryLastAction()"
+          (conversationRequested)="openConversation($event)"
+          (inboxRequested)="openInbox()"
+          (hideRequested)="hideActiveConversation()"
+          (answerRequested)="answerFriend($event.id, $event.status)"
+          (reportRequested)="reportTarget('message', $event)"
+          (draftChange)="messageDraft = $event"
+          (sendRequested)="sendChat()"
+          (permissionChange)="messagePermission = $event"
+          (permissionSaveRequested)="updateMessagePermission()"
+        ></app-messaging-domain>
       }
-    } @placeholder { @if (screen === "inbox" || screen === "conversation" || screen === "community-settings") { <div class="route-loading light"><i></i><span>Ouverture de la messagerie…</span></div> } }
+    } @placeholder {
+      @if (
+        screen === "inbox" ||
+        screen === "conversation" ||
+        screen === "community-settings"
+      ) {
+        <div class="route-loading light">
+          <i></i><span>Ouverture de la messagerie…</span>
+        </div>
+      }
+    }
 
     @if (screen === "profile") {
       <section class="page profile-page">
@@ -1282,7 +2886,13 @@
     }
   </main>
 
-  @if (screen !== "splash" && screen !== "auth" && screen !== "questionnaire" && screen !== "reader" && screen !== "video-studio") {
+  @if (
+    screen !== "splash" &&
+    screen !== "auth" &&
+    screen !== "questionnaire" &&
+    screen !== "reader" &&
+    screen !== "video-studio"
+  ) {
     <footer>
       <span class="brand">✦ To Get There</span>
       <p>Voyage doucement, rêve grand.</p>
@@ -1300,7 +2910,15 @@
       <span class="privacy">{{
         trip.visibility === "private" ? "🔒 Privé" : "✦ Public"
       }}</span>
-      @if (trip.coverUrl) { <img class="trip-cover-image" [src]="trip.coverUrl" [alt]="'Couverture de ' + trip.title"> } @else { <div class="landscape"><i></i><b></b><em>✦</em></div> }
+      @if (trip.coverUrl) {
+        <img
+          class="trip-cover-image"
+          [src]="trip.coverUrl"
+          [alt]="'Couverture de ' + trip.title"
+        />
+      } @else {
+        <div class="landscape"><i></i><b></b><em>✦</em></div>
+      }
     </div>
     <div class="trip-content">
       <span
