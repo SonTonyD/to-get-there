@@ -51,7 +51,7 @@
 
   <main>
     @defer (when screen === "video-studio") {
-      @if (selectedTrip) {
+      @if (screen === "video-studio" && selectedTrip) {
         <app-video-studio [trip]="selectedTrip" [day]="videoDay" [project]="videoProject" [media]="videoMedia" [busy]="videoBusy" [exportState]="videoExport" [browserExportSupported]="browserVideo.supported" [error]="videoError" (close)="closeVideoStudio()" (generate)="generateVideoStoryboard($event)" (save)="saveVideoProject($event)" (exportFilm)="exportVideoInBrowser($event)"></app-video-studio>
       }
     }
