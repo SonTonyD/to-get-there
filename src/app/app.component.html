@@ -51,7 +51,7 @@
 
   <main>
     @if (screen === "reader" && readerPage) {
-      <section class="book-reader" [ngClass]="['reader-' + (readerPage.layout || readerTrip?.design || 'editorial'),'composition-' + (readerPage.composition || 'classic')]" (touchstart)="readerTouchStart($event)" (touchend)="readerTouchEnd($event)">
+      <section class="book-reader" [ngClass]="readerDesignClasses.concat('reader-' + (readerPage.layout || readerTrip?.design || 'editorial'))" [ngStyle]="readerDesignStyles" (touchstart)="readerTouchStart($event)" (touchend)="readerTouchEnd($event)">
         <header class="reader-bar"><button (click)="closeReader()">✕ Fermer</button><div><span>{{ readerTrip?.title }}</span><i [style.width.%]="((readerIndex + 1) / readerPages.length) * 100"></i></div><div class="reader-tools"><button (click)="readerTocOpen = !readerTocOpen" aria-label="Sommaire">☰</button><button (click)="toggleReaderFullscreen()" aria-label="Plein écran">⛶</button><span>{{ readerIndex + 1 }} / {{ readerPages.length }}</span></div></header>
         @if (readerTocOpen) { <aside class="reader-toc"><header><span>Sommaire</span><button (click)="readerTocOpen=false">×</button></header>@for (page of readerPages; track $index) { <button [class.active]="$index === readerIndex" (click)="goToReaderPage($index)"><b>{{ page.kind === 'cover' ? '✦' : page.kind === 'timeline' ? '⌁' : page.kind === 'end' ? '∞' : page.number }}</b><span>{{ page.kind === 'cover' ? 'Couverture' : page.kind === 'timeline' ? 'Le voyage en un regard' : page.title }}</span></button> }</aside> }
         <div class="reader-stage">
@@ -61,12 +61,12 @@
               @if (readerPage.photo) { <img class="reader-cover-image" [src]="readerPage.photo" alt="Couverture du voyage"> }
               <div class="reader-cover-copy"><span>Carnet de voyage</span><h1>{{ readerPage.title }}</h1><p>{{ readerPage.country }}</p><small>Une histoire de {{ readerPage.author }}</small></div><div class="reader-cover-stamp">Bon<br>voyage</div>
             } @else if (readerPage.kind === 'timeline') {
-              <div class="reader-timeline-page"><span class="timeline-kicker">Le voyage, d’un seul regard</span><h1>{{ readerPage.title }}</h1><p>{{ readerPage.country }} · le fil de nos souvenirs</p><div class="trip-thread">@for (day of readerPage.days; track day.date) { <article><b>{{ day.number | number:'2.0' }}</b><div><time>{{ formatDate(day.date) }}</time><h3>{{ day.title }}</h3><p>{{ day.summary }}</p></div></article> }</div><div class="timeline-flight">✈ 〰 〰 〰 ✦</div></div>
+              <div class="reader-timeline-page"><span class="timeline-kicker">Le voyage, d’un seul regard</span><h1>{{ readerPage.title }}</h1><p>{{ readerPage.country }} · le fil de nos souvenirs</p><div class="trip-thread">@for (day of readerPage.days; track (day.id || day.date || 'day') + '-' + $index) { <article><b>{{ day.number | number:'2.0' }}</b><div><time>{{ formatDate(day.date) }}</time><h3>{{ day.title }}</h3><p>{{ day.summary }}</p></div></article> }</div><div class="timeline-flight">✈ 〰 〰 〰 ✦</div></div>
             } @else if (readerPage.kind === 'day') {
               <div class="reader-day-head"><span>Jour {{ readerPage.number | number:'2.0' }}</span><small>{{ formatDate(readerPage.date) }}</small><h1>{{ readerPage.title || 'Une journée à raconter' }}</h1></div>
               @if (readerPage.photos?.length) { <div class="reader-photo-story" [class.single-photo]="readerPage.photos.length === 1" [class.two-photos]="readerPage.photos.length === 2"><figure><img class="reader-main-photo" [src]="readerPage.photos[0]" alt="Souvenir de la journée" (click)="readerLightbox=readerPage.photos[0]"><figcaption>{{ readerPage.events?.[0]?.place || 'Souvenir du jour' }}</figcaption></figure>@for (photo of readerPage.photos.slice(1,3); track $index) { <figure><img [src]="photo" alt="Souvenir de la journée" (click)="readerLightbox=photo"><figcaption>{{ readerPage.events?.[$index + 1]?.place || '' }}</figcaption></figure> }</div> } @else { <div class="reader-no-photo"><span>✦</span><div>Une journée vécue<br><b>au-delà de l’objectif</b></div><small>{{ readerPage.date | date:'dd · MM · yyyy' }}</small></div> }
               <p class="reader-summary">{{ readerPage.summary }}</p>
-              <div class="reader-events">@for (event of readerPage.events; track event.order || $index) { <section><time>{{ event.time ? event.time.slice(0,5) : '✦' }}</time><div><h3>{{ event.title }}</h3><p>{{ event.description }}</p>@if (event.place) { <small>⌖ {{ event.place }}</small> }</div></section> }</div>
+              <div class="reader-events">@for (event of readerPage.events; track (event.id || event.order || event.event_order || 'event') + '-' + $index) { <section><time>{{ event.time ? event.time.slice(0,5) : '✦' }}</time><div><h3>{{ event.title }}</h3><p>{{ event.description }}</p>@if (event.place) { <small>⌖ {{ event.place }}</small> }</div></section> }</div>
               <div class="reader-page-number">— {{ readerPage.number }} —</div>
               <button class="reader-share-day" (click)="shareReaderDay()">↗ Partager cette journée</button>
             } @else {
@@ -489,7 +489,7 @@
               </div>
               <span class="badge">{{ selectedTrip.days.length }} jours</span>
             </div>
-            @for (day of selectedTrip.days; track day.date) {
+            @for (day of selectedTrip.days; track (day.id || day.date || 'day') + '-' + $index) {
               <div class="day-row" (click)="openJournal(day)">
                 <div class="day-number">
                   {{ day.label.replace("Jour ", "") }}
@@ -796,6 +796,8 @@
             @if (journal.title || journal.events.length) {
               <div
                 class="paper-card generated-page"
+                [ngClass]="scrapbookDesignClasses"
+                [ngStyle]="scrapbookDesignStyles"
                 [class.preview-mode]="!journalEditing"
                 [class.scrapbook-layout]="journal.layout === 'scrapbook'"
                 [class.editorial-layout]="journal.layout === 'editorial'"
@@ -828,6 +830,16 @@
                     {{ journalEditing ? "Aperçu" : "Personnaliser" }}
                   </button>
                 </div>
+                <section class="scrapbook-studio" [class.open]="designPanelOpen">
+                  <button class="studio-toggle" (click)="designPanelOpen=!designPanelOpen"><span><b>✦ Studio scrapbook</b><small>Crée une page qui ne ressemble qu’à toi</small></span><i>{{ designPanelOpen ? '−' : '+' }}</i></button>
+                  @if (designPanelOpen) { <div class="studio-body">
+                    <div class="studio-heading"><span>{{ journal.design.style }} · {{ journal.design.palette }}</span><button (click)="randomizeScrapbook()">⚄ Surprise-moi</button></div>
+                    <div class="studio-group"><label>Univers</label><div class="visual-options styles"><button [class.active]="journal.design.style==='wanderlust'" (click)="setScrapbookOption('style','wanderlust')"><i>✈</i><span>Wanderlust</span></button><button [class.active]="journal.design.style==='retro'" (click)="setScrapbookOption('style','retro')"><i>◉</i><span>Rétro pop</span></button><button [class.active]="journal.design.style==='botanical'" (click)="setScrapbookOption('style','botanical')"><i>❀</i><span>Botanique</span></button><button [class.active]="journal.design.style==='nocturne'" (click)="setScrapbookOption('style','nocturne')"><i>☾</i><span>Nocturne</span></button></div></div>
+                    <div class="studio-group"><label>Palette</label><div class="palette-options"><button class="palette-candy" [class.active]="journal.design.palette==='candy'" (click)="setScrapbookOption('palette','candy')"><i></i><span>Candy</span></button><button class="palette-sunset" [class.active]="journal.design.palette==='sunset'" (click)="setScrapbookOption('palette','sunset')"><i></i><span>Sunset</span></button><button class="palette-ocean" [class.active]="journal.design.palette==='ocean'" (click)="setScrapbookOption('palette','ocean')"><i></i><span>Océan</span></button><button class="palette-forest" [class.active]="journal.design.palette==='forest'" (click)="setScrapbookOption('palette','forest')"><i></i><span>Forêt</span></button><button class="palette-mono" [class.active]="journal.design.palette==='mono'" (click)="setScrapbookOption('palette','mono')"><i></i><span>Mono</span></button><button class="palette-lavender" [class.active]="journal.design.palette==='lavender'" (click)="setScrapbookOption('palette','lavender')"><i></i><span>Lavande</span></button></div></div>
+                    <div class="custom-colors"><label><span>Accent personnalisé</span><input type="color" [ngModel]="journal.design.customAccent || '#7b2dce'" (ngModelChange)="setScrapbookOption('customAccent',$event)"><button (click)="setScrapbookOption('customAccent','')">Réinitialiser</button></label><label><span>Couleur du papier</span><input type="color" [ngModel]="journal.design.customPaper || '#fff9e9'" (ngModelChange)="setScrapbookOption('customPaper',$event)"><button (click)="setScrapbookOption('customPaper','')">Réinitialiser</button></label></div>
+                    <div class="studio-columns"><div class="studio-group"><label>Papier</label><select [ngModel]="journal.design.paper" (ngModelChange)="setScrapbookOption('paper',$event)"><option value="grid">Papier quadrillé</option><option value="kraft">Kraft chaleureux</option><option value="floral">Herbier floral</option><option value="clean">Papier épuré</option></select></div><div class="studio-group"><label>Photos</label><select [ngModel]="journal.design.composition" (ngModelChange)="setScrapbookOption('composition',$event)"><option value="collage">Collage libre</option><option value="polaroid">Polaroïds</option><option value="postcard">Carte postale</option><option value="filmstrip">Pellicule photo</option></select></div><div class="studio-group"><label>Typographie</label><select [ngModel]="journal.design.font" (ngModelChange)="setScrapbookOption('font',$event)"><option value="handwritten">Manuscrite</option><option value="editorial">Éditoriale</option><option value="typewriter">Machine à écrire</option></select></div><div class="studio-group"><label>Décorations</label><select [ngModel]="journal.design.decorations" (ngModelChange)="setScrapbookOption('decorations',$event)"><option value="minimal">Discrètes</option><option value="balanced">Équilibrées</option><option value="maximal">Très créatives</option></select></div></div>
+                  </div> }
+                </section>
                 <div class="paper-details">
                   <span class="tape"></span
                   ><span class="stamp-mark"
@@ -862,7 +874,7 @@
                 <div class="event-list">
                   @for (
                     event of journal.events;
-                    track event.order;
+                    track (event.id || event.order || event.event_order || 'event') + '-' + $index;
                     let index = $index
                   ) {
                     <article class="journal-event">
@@ -938,7 +950,7 @@
                       ><button (click)="confirmPlace(place, false)">✕</button>
                     </div>
                     @if (place.matches?.length) {
-                      <div class="place-matches"><span>Choisis le lieu exact :</span>@for (match of place.matches; track match.providerPlaceId || match.existingPlaceId) { <button class="place-match" (click)="choosePlace(place,match)"><b>{{ match.name }}</b><small>{{ match.formatted }}</small><i>📍 {{ match.latitude | number:'1.3-3' }}, {{ match.longitude | number:'1.3-3' }}</i></button> }</div>
+                      <div class="place-matches"><span>Choisis le lieu exact :</span>@for (match of place.matches; track (match.providerPlaceId || match.existingPlaceId || match.name || 'match') + '-' + $index) { <button class="place-match" (click)="choosePlace(place,match)"><b>{{ match.name }}</b><small>{{ match.formatted }}</small><i>📍 {{ match.latitude | number:'1.3-3' }}, {{ match.longitude | number:'1.3-3' }}</i></button> }</div>
                     }
                   } @else if (place.status === "confirmed") {
                     <span>✓ Lieu confirmé</span>
@@ -1065,7 +1077,7 @@
         </div>
         @if (actionError?.scope === 'explore') { <div class="inline-feedback error"><span>Impossible de charger les voyages.<small>{{ actionError?.message }}</small></span><button (click)="retryLastAction()">Réessayer</button></div> }
         <div class="public-grid">
-          @if (exploreLoading) { @for (placeholder of [1,2,3,4,5,6]; track placeholder) { <article class="public-card skeleton-card"><div class="skeleton skeleton-cover"></div><div><i class="skeleton skeleton-avatar"></i><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line short"></span></div></article> } } @else { @for (item of filteredPublicTrips; track item.slug) {
+          @if (exploreLoading) { @for (placeholder of [1,2,3,4,5,6]; track placeholder) { <article class="public-card skeleton-card"><div class="skeleton skeleton-cover"></div><div><i class="skeleton skeleton-avatar"></i><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line short"></span></div></article> } } @else { @for (item of filteredPublicTrips; track (item.slug || item.snapshot?.trip?.id || 'trip') + '-' + $index) {
             <article
               class="public-card"
               [class.scrapbook-card]="item.snapshot.design === 'scrapbook'"
@@ -1109,7 +1121,7 @@
         <header class="destination-hero"><span>{{destination.destination.type === 'country' ? '🌍 Destination' : '⌖ Ville'}}</span><h1>{{destination.destination.city_name || destination.destination.country_name}}</h1><p>{{destination.stats.public_trip_count}} carnets publics · durée moyenne {{destination.stats.average_duration || '—'}} jours</p></header>
         <div class="destination-grid"><section class="paper-card"><h3>Quand les voyageurs y vont</h3><div class="month-chart">@for(month of months.slice(1);track month){<div><span>{{month.slice(0,3)}}</span><i><b [style.height.%]="monthBar(destination.stats.month_distribution?.[$index+1],destination.stats.public_trip_count)"></b></i><small>{{destination.stats.month_distribution?.[$index+1] || 0}}</small></div>}</div></section>
         <section class="paper-card stat-callout"><span>Budget communautaire</span><b>{{destination.stats.public_budget_average ? (destination.stats.public_budget_average | currency:'EUR':'symbol':'1.0-0':'fr') : 'Non disponible'}}</b><small>Uniquement les budgets partagés anonymement</small></section></div>
-        @if(destination.routes?.length){<div class="section-head"><div><span class="eyebrow">Itinéraires observés</span><h3>Chemins empruntés</h3></div></div><div class="route-list">@for(route of destination.routes;track route.route){<span>{{route.route}} <small>{{route.trip_count}} voyage(s)</small></span>}</div>}
+        @if(destination.routes?.length){<div class="section-head"><div><span class="eyebrow">Itinéraires observés</span><h3>Chemins empruntés</h3></div></div><div class="route-list">@for(route of destination.routes;track (route.route || 'route') + '-' + $index){<span>{{route.route}} <small>{{route.trip_count}} voyage(s)</small></span>}</div>}
         @if(destination.places?.length){<div class="section-head"><div><span class="eyebrow">Adresses de la communauté</span><h3>Lieux recommandés</h3></div></div><div class="place-results">@for(place of destination.places;track place.id){<button (click)="openPlace(place)"><span>{{place.category === 'restaurant' ? '🍜' : place.category === 'cafe' ? '☕' : '✦'}}</span><div><b>{{place.name}}</b><small>{{place.visit_count}} visites · {{place.recommendation_count}} recommandations</small></div><i>→</i></button>}</div>}
         @if(destination.advice?.length){<div class="section-head"><div><span class="eyebrow">À savoir avant de partir</span><h3>Conseils voyageurs</h3></div></div><div class="advice-grid">@for(advice of destination.advice;track advice.id){<blockquote><p>“{{advice.advice_text}}”</p><small>{{advice.recommend_destination === 'yes' ? '♥ Destination recommandée' : 'Avis mitigé'}} · {{advice.recommended_duration}} jours conseillés</small></blockquote>}</div>}
         <div class="section-head"><div><span class="eyebrow">Les sources</span><h3>Carnets derrière ces données</h3></div></div><div class="source-trips">@for(trip of destination.trips;track trip.trip_id){<button (click)="openPublicTrip(searchTripPublication(trip.trip_id))"><b>{{trip.title}}</b><small>{{trip.duration_days}} jours · {{months[trip.start_month]}}</small></button>}</div>
@@ -1192,14 +1204,14 @@
         </aside>
         @if (selectedPublicTrip.photos?.length > 1) {
           <div class="public-photo-grid">
-            @for (photo of selectedPublicTrip.photos.slice(1, 7); track photo) {
+            @for (photo of selectedPublicTrip.photos.slice(1, 7); track (photo || 'photo') + '-' + $index) {
               <img [src]="photo" alt="Souvenir du voyage" />
             }
           </div>
         }
         @if (selectedPublicTrip.days) {
           <div class="public-days">
-            @for (day of selectedPublicTrip.days; track day.date) {
+            @for (day of selectedPublicTrip.days; track (day.id || day.date || 'day') + '-' + $index) {
               <article class="paper-card">
                 <span>{{ formatDate(day.date) }}</span>
                 <h3>{{ day.title || "Une journée de voyage" }}</h3>
@@ -1231,7 +1243,7 @@
       </section>
     }
 
-    @if (screen === "public-profile" && communityProfile) { <section class="page community-profile-page"><button class="back" (click)="openExplore()">← Explorer</button><div class="community-profile-hero paper-card"><div class="community-avatar">{{ (communityProfile.profile.firstname || communityProfile.profile.username).charAt(0) }}</div><div><span class="eyebrow">Voyageur public</span><h2>{{ communityProfile.profile.firstname || communityProfile.profile.username }}</h2><p>&#64;{{ communityProfile.profile.username }} · {{ communityProfile.profile.bio || 'Collectionne les beaux détours.' }}</p><div class="community-counts"><span><b>{{ communityProfile.countries.length }}</b> pays</span><span><b>{{ communityProfile.followers }}</b> abonnés</span><span><b>{{ communityProfile.following }}</b> abonnements</span><span><b>{{ communityProfile.publications.length }}</b> carnets</span></div></div><div class="profile-social-actions">@if (!relationship.blocked) { <button class="primary" (click)="toggleFollow()">{{ relationship.following ? '✓ Suivi(e)' : '+ Suivre' }}</button><button class="secondary" [disabled]="relationship.friendship?.status === 'pending' || relationship.friendship?.status === 'accepted'" (click)="requestFriend()">{{ relationship.friendship?.status === 'accepted' ? '✓ Amis' : relationship.friendship?.status === 'pending' ? 'Demande envoyée' : 'Ajouter en ami' }}</button><button class="secondary" (click)="startChat(communityProfile.profile.id)">Message</button> }<button class="danger-link" (click)="blockProfile()">Bloquer</button><button class="text-link" (click)="reportTarget('user',communityProfile.profile.id)">Signaler</button></div></div><div class="section-head"><div><span class="eyebrow">Passeport</span><h3>{{ communityProfile.countries.length }} pays visités</h3></div></div><div class="country-wall">@for (country of communityProfile.countries; track country) { <button (click)="exploreCountry(country)">✦ {{ country }}</button> }</div><div class="section-head"><div><span class="eyebrow">Carnets publics</span><h3>Ses voyages</h3></div></div><div class="public-grid compact-community-grid">@for (item of communityProfile.publications; track item.slug) { <article class="public-card scrapbook-card" (click)="openPublicTrip(item)"><div class="public-cover" [style.background-image]="item.snapshot.photos?.length ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' + item.snapshot.photos[0] + ')' : ''"><span class="cover-country">{{ item.snapshot.trip.country }}</span><b>{{ item.snapshot.trip.title }}</b></div></article> }</div></section> }
+    @if (screen === "public-profile" && communityProfile) { <section class="page community-profile-page"><button class="back" (click)="openExplore()">← Explorer</button><div class="community-profile-hero paper-card"><div class="community-avatar">{{ (communityProfile.profile.firstname || communityProfile.profile.username).charAt(0) }}</div><div><span class="eyebrow">Voyageur public</span><h2>{{ communityProfile.profile.firstname || communityProfile.profile.username }}</h2><p>&#64;{{ communityProfile.profile.username }} · {{ communityProfile.profile.bio || 'Collectionne les beaux détours.' }}</p><div class="community-counts"><span><b>{{ communityProfile.countries.length }}</b> pays</span><span><b>{{ communityProfile.followers }}</b> abonnés</span><span><b>{{ communityProfile.following }}</b> abonnements</span><span><b>{{ communityProfile.publications.length }}</b> carnets</span></div></div><div class="profile-social-actions">@if (!relationship.blocked) { <button class="primary" (click)="toggleFollow()">{{ relationship.following ? '✓ Suivi(e)' : '+ Suivre' }}</button><button class="secondary" [disabled]="relationship.friendship?.status === 'pending' || relationship.friendship?.status === 'accepted'" (click)="requestFriend()">{{ relationship.friendship?.status === 'accepted' ? '✓ Amis' : relationship.friendship?.status === 'pending' ? 'Demande envoyée' : 'Ajouter en ami' }}</button><button class="secondary" (click)="startChat(communityProfile.profile.id)">Message</button> }<button class="danger-link" (click)="blockProfile()">Bloquer</button><button class="text-link" (click)="reportTarget('user',communityProfile.profile.id)">Signaler</button></div></div><div class="section-head"><div><span class="eyebrow">Passeport</span><h3>{{ communityProfile.countries.length }} pays visités</h3></div></div><div class="country-wall">@for (country of communityProfile.countries; track (country || 'country') + '-' + $index) { <button (click)="exploreCountry(country)">✦ {{ country }}</button> }</div><div class="section-head"><div><span class="eyebrow">Carnets publics</span><h3>Ses voyages</h3></div></div><div class="public-grid compact-community-grid">@for (item of communityProfile.publications; track (item.slug || item.trip_id || 'publication') + '-' + $index) { <article class="public-card scrapbook-card" (click)="openPublicTrip(item)"><div class="public-cover" [style.background-image]="item.snapshot.photos?.length ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' + item.snapshot.photos[0] + ')' : ''"><span class="cover-country">{{ item.snapshot.trip.country }}</span><b>{{ item.snapshot.trip.title }}</b></div></article> }</div></section> }
 
     @if (screen === "inspirations") { <section class="page"><div class="page-title"><div><span class="eyebrow">À garder précieusement</span><h2>Mes inspirations</h2><p>Les carnets enregistrés pour plus tard.</p></div></div><div class="public-grid compact-community-grid">@for (item of inspirationsList; track item.id) { <article class="public-card scrapbook-card" (click)="openPublicTrip(item.publication)"><div class="public-cover" [style.background-image]="item.publication.snapshot.photos?.length ? 'linear-gradient(180deg,transparent,rgba(43,28,53,.8)),url(' + item.publication.snapshot.photos[0] + ')' : ''"><span class="cover-country">{{ item.publication.snapshot.trip.country }}</span><b>{{ item.publication.snapshot.trip.title }}</b></div><div><p>Par {{ item.publication.snapshot.author.firstname || item.publication.snapshot.author.username }}</p></div></article> } @empty { <div class="empty-state paper-card"><span>🔖</span><h3>Aucune inspiration</h3><button class="primary" (click)="openExplore()">Explorer</button></div> }</div></section> }
 
