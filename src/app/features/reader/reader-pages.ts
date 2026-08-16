@@ -44,6 +44,8 @@ function routePage(places: any[], country: string) {
     name: place.name,
     city: place.city,
     order: index + 1,
+    latitude: Number(place.latitude),
+    longitude: Number(place.longitude),
     x: 12 + ((Number(place.longitude) - minLon) / Math.max(maxLon - minLon, .0001)) * 76,
     y: 14 + (1 - ((Number(place.latitude) - minLat) / Math.max(maxLat - minLat, .0001))) * 68,
   }));

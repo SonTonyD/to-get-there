@@ -66,7 +66,18 @@
       }@else if(item.kind==='timeline'){
         <div class="reader-timeline-page"><span class="timeline-kicker">Le voyage, d’un seul regard</span><h1>{{item.title}}</h1><p>{{item.country}} · le fil de nos souvenirs</p><div class="trip-thread">@for(day of item.days;track (day.date||'day')+'-'+$index){<article><b>{{day.number|number:'2.0'}}</b><div><time>{{formatDate(day.date)}}</time><h3>{{day.title}}</h3><p>{{day.summary}}</p></div></article>}</div><div class="timeline-flight">✈ 〰 〰 〰 ✦</div></div>
       }@else if(item.kind==='map'){
-        <div class="reader-route-page"><span class="timeline-kicker">Interlude · carte des souvenirs</span><h1>{{item.title}}</h1><p>{{item.country}} s’est dessiné étape après étape.</p><div class="memory-map">@for(pin of item.pins;track pin.order){<span class="route-pin" [style.left.%]="pin.x" [style.top.%]="pin.y"><i>{{pin.order}}</i><b>{{pin.name}}</b><small>{{pin.city}}</small></span>}@if(!item.pins?.length){<div class="city-route">@for(city of item.cities;track city){<span>{{city}}</span>}</div>}</div><div class="route-cities">@for(city of item.cities;track city){<span>{{city}}</span>}</div></div>
+        <div class="reader-route-page">
+          <span class="timeline-kicker">Interlude · carte des souvenirs</span><h1>{{item.title}}</h1><p>{{item.country}} s’est dessiné étape après étape.</p>
+          <div class="memory-map" [class.has-real-map]="item.pins?.length">
+            @if(item.pins?.length){
+              <div class="leaflet-memory-map" [attr.data-reader-map]="pageIndex"></div>
+              <span class="map-ready-label">⌖ {{item.pins.length}} souvenir{{item.pins.length>1?'s':''}} localisé{{item.pins.length>1?'s':''}}</span>
+            }@else{
+              <div class="city-route">@for(city of item.cities;track city){<span>{{city}}</span>}</div>
+            }
+          </div>
+          <div class="route-cities">@for(city of item.cities;track city){<span>{{city}}</span>}</div>
+        </div>
       }@else if(item.kind==='day'){
         <div class="reader-day-head"><div><span>Jour {{item.number|number:'2.0'}}</span><small>{{formatDate(item.date)}}</small></div><em>{{item.composition==='editorial'?'Éditorial':item.composition==='postcard'?'Carte postale':item.composition==='contact'?'Planche contact':item.composition==='ticket'?'Carnet de route':item.composition==='journal'?'Page de journal':'Polaroïds'}}</em><h1>{{item.title||'Une journée à raconter'}}</h1></div>
         @if(item.photos?.length){

@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnDestroy, Output, SimpleChanges } from '@angular/core';
+import * as L from 'leaflet';
 
 @Component({
   selector: 'app-travel-reader',
@@ -31,6 +32,7 @@ export class TravelReaderComponent implements AfterViewInit, OnChanges, OnDestro
   private ambientGain?: GainNode;
   private ambientOscillators: OscillatorNode[] = [];
   private ambientTimer?: ReturnType<typeof setInterval>;
+  private memoryMaps = new Map<HTMLElement, L.Map>();
 
   constructor(private readonly element: ElementRef<HTMLElement>) {}
 
@@ -44,15 +46,18 @@ export class TravelReaderComponent implements AfterViewInit, OnChanges, OnDestro
       .map(index => ({ item: this.pages[index], index }));
   }
 
-  ngAfterViewInit() { this.scrollToMobilePage(false); }
+  ngAfterViewInit() { this.scrollToMobilePage(false); setTimeout(() => this.renderMemoryMaps()); }
   ngOnChanges(changes: SimpleChanges) {
     if (!changes['index'] || changes['index'].firstChange) return;
     if (changes['index'].currentValue === this.emittedIndex) { this.emittedIndex = undefined; return; }
     this.scrollToMobilePage(false);
+    setTimeout(() => this.renderMemoryMaps());
   }
   ngOnDestroy() {
     clearTimeout(this.turnTimer);
     cancelAnimationFrame(this.scrollFrame);
+    this.memoryMaps.forEach(map => map.remove());
+    this.memoryMaps.clear();
     this.stopAmbient();
   }
 
@@ -69,6 +74,7 @@ export class TravelReaderComponent implements AfterViewInit, OnChanges, OnDestro
     clearTimeout(this.turnTimer);
     this.turnTimer = setTimeout(() => this.turnDirection = '', 620);
     if (scroll) this.scrollToMobilePage();
+    setTimeout(() => this.renderMemoryMaps());
   }
 
   activatePage(index: number) {
@@ -120,6 +126,43 @@ export class TravelReaderComponent implements AfterViewInit, OnChanges, OnDestro
       ?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }));
   }
 
+  private renderMemoryMaps() {
+    this.memoryMaps.forEach((map, element) => {
+      if (!document.contains(element) || !element.offsetWidth || !element.offsetHeight) {
+        map.remove();
+        this.memoryMaps.delete(element);
+      }
+    });
+    const elements = [...this.element.nativeElement.querySelectorAll<HTMLElement>('[data-reader-map]')];
+    elements.forEach(element => {
+      if (!element.offsetWidth || !element.offsetHeight) return;
+      const existing = this.memoryMaps.get(element);
+      if (existing) { existing.invalidateSize(); return; }
+      const pageIndex = Number(element.dataset['readerMap']);
+      const pins = (this.pages[pageIndex]?.pins ?? []).filter((pin: any) =>
+        Number.isFinite(Number(pin.latitude)) && Number.isFinite(Number(pin.longitude)));
+      if (!pins.length) return;
+      const map = L.map(element, { zoomControl: false, scrollWheelZoom: false, attributionControl: true });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap', maxZoom: 19,
+      }).addTo(map);
+      const points: L.LatLngExpression[] = [];
+      pins.forEach((pin: any, pinIndex: number) => {
+        const point: L.LatLngExpression = [Number(pin.latitude), Number(pin.longitude)];
+        points.push(point);
+        L.circleMarker(point, {
+          radius: 8, color: '#fff', weight: 3, fillColor: '#d95786', fillOpacity: 1,
+        }).addTo(map).bindTooltip(`${pinIndex + 1}. ${pin.name}${pin.city ? ` · ${pin.city}` : ''}`, {
+          direction: 'top', offset: [0, -7], className: 'reader-map-tooltip',
+        });
+      });
+      if (points.length > 1) L.polyline(points, { color: '#8f5fd7', weight: 3, dashArray: '7 8', opacity: .8 }).addTo(map);
+      map.fitBounds(L.latLngBounds(points), { padding: [34, 34], maxZoom: 13 });
+      this.memoryMaps.set(element, map);
+      setTimeout(() => map.invalidateSize(), 80);
+    });
+  }
+
   pageClasses(item: any) {
     const design = item?.design ?? {};
     return [
@@ -140,6 +183,7 @@ export class TravelReaderComponent implements AfterViewInit, OnChanges, OnDestro
     try {
       if (!document.fullscreenElement) await this.element.nativeElement.requestFullscreen();
       else await document.exitFullscreen();
+      setTimeout(() => this.renderMemoryMaps(), 100);
     } catch { this.notice.emit('Le plein écran n’est pas disponible sur cet appareil.'); }
   }
 
@@ -237,4 +281,6 @@ export class TravelReaderComponent implements AfterViewInit, OnChanges, OnDestro
     if (event.key === 'ArrowRight' || event.key === ' ') { event.preventDefault(); this.next(); }
     if (event.key === 'ArrowLeft') this.previous();
   }
+
+  @HostListener('window:resize') onResize() { this.renderMemoryMaps(); }
 }
