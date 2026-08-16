@@ -43,10 +43,15 @@ Le studio Angular est relié à Supabase par la migration `supabase/migrations/2
 ```bash
 supabase db push
 supabase functions deploy generate-video-storyboard
-supabase functions deploy request-video-render
 ```
 
-La génération du storyboard utilise `OPENAI_VIDEO_MODEL`, puis `OPENAI_MODEL`, avec `gpt-5.6-luna` comme valeur par défaut. L’export MP4 est volontairement séparé des Edge Functions : déployez le conteneur de `video-renderer`, puis configurez `VIDEO_RENDERER_URL` et `VIDEO_RENDERER_SECRET` dans les secrets Supabase. Les détails sont dans [video-renderer/README.md](video-renderer/README.md).
+La génération du storyboard utilise `OPENAI_VIDEO_MODEL`, puis `OPENAI_MODEL`, avec `gpt-5.6-luna` comme valeur par défaut. Le MP4 est ensuite généré directement sur l’appareil avec WebCodecs et Mediabunny en 720p/25 fps, puis téléchargé et sauvegardé dans le bucket privé `video-renders`. Aucun serveur Render, secret de renderer ou service vidéo tiers n’est nécessaire.
+
+Après déploiement de `20260817_browser_video_export.sql`, l’ancienne Edge Function distante peut être supprimée :
+
+```bash
+supabase functions delete request-video-render
+```
 
 ## Running unit tests
 

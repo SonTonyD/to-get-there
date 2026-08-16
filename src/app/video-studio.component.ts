@@ -22,7 +22,8 @@ export class VideoStudioComponent implements OnChanges, OnDestroy {
   @Input() project: any;
   @Input() media: any[] = [];
   @Input() busy = '';
-  @Input() render: any;
+  @Input() exportState: any;
+  @Input() browserExportSupported = false;
   @Input() error = '';
   @Output() close = new EventEmitter<void>();
   @Output() generate = new EventEmitter<VideoStudioConfig>();
@@ -54,11 +55,6 @@ export class VideoStudioComponent implements OnChanges, OnDestroy {
   get photos() { return this.media.filter(item => item.media_type === 'photo' && item.url); }
   get totalDuration() { return Math.round(this.scenes.reduce((sum: number, scene: any) => sum + Number(scene.duration || 0), 0) * 10) / 10; }
   get sourceLabel() { return this.day ? `${this.day.label} · ${this.day.date}` : `Tout le voyage · ${this.trip?.title ?? ''}`; }
-  get renderLabel() {
-    const labels: Record<string, string> = { queued: 'Dans la file de rendu', preparing: 'Préparation des médias', rendering: 'Création du film', uploading: 'Envoi du MP4', completed: 'Film prêt', failed: 'Rendu interrompu' };
-    return labels[this.render?.status] ?? '';
-  }
-
   sceneMedia(scene = this.scene) {
     const ids = scene?.media_ids ?? [];
     return ids.map((id: string) => this.media.find(item => item.id === id)).filter(Boolean);

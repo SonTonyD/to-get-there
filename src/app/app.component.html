@@ -52,7 +52,7 @@
   <main>
     @defer (when screen === "video-studio") {
       @if (selectedTrip) {
-        <app-video-studio [trip]="selectedTrip" [day]="videoDay" [project]="videoProject" [media]="videoMedia" [busy]="videoBusy" [render]="videoRender" [error]="videoError" (close)="closeVideoStudio()" (generate)="generateVideoStoryboard($event)" (save)="saveVideoProject($event)" (exportFilm)="renderVideoProject($event)"></app-video-studio>
+        <app-video-studio [trip]="selectedTrip" [day]="videoDay" [project]="videoProject" [media]="videoMedia" [busy]="videoBusy" [exportState]="videoExport" [browserExportSupported]="browserVideo.supported" [error]="videoError" (close)="closeVideoStudio()" (generate)="generateVideoStoryboard($event)" (save)="saveVideoProject($event)" (exportFilm)="exportVideoInBrowser($event)"></app-video-studio>
       }
     }
     @if (screen === "reader" && readerPage) {

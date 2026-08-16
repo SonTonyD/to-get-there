@@ -13,6 +13,8 @@ create table if not exists public.video_projects (
   target_duration integer not null default 30 check (target_duration in (30,60)),
   style_settings jsonb not null default '{"palette":"candy","music":"none","showText":true,"style":"scrapbook"}'::jsonb,
   status text not null default 'draft' check (status in ('draft','storyboard_ready','rendering','ready','failed')),
+  latest_export_path text,
+  exported_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -32,26 +34,11 @@ create table if not exists public.video_scenes (
   unique(project_id, position)
 );
 
-create table if not exists public.video_renders (
-  id uuid primary key default gen_random_uuid(),
-  project_id uuid not null references public.video_projects(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  status text not null default 'queued' check (status in ('queued','preparing','rendering','uploading','completed','failed')),
-  progress integer not null default 0 check (progress between 0 and 100),
-  storage_path text,
-  error_message text,
-  created_at timestamptz not null default now(),
-  started_at timestamptz,
-  completed_at timestamptz
-);
-
 create index if not exists video_projects_trip_idx on public.video_projects(trip_id, updated_at desc);
 create index if not exists video_scenes_project_idx on public.video_scenes(project_id, position);
-create index if not exists video_renders_project_idx on public.video_renders(project_id, created_at desc);
 
 alter table public.video_projects enable row level security;
 alter table public.video_scenes enable row level security;
-alter table public.video_renders enable row level security;
 
 drop policy if exists video_projects_owner_all on public.video_projects;
 create policy video_projects_owner_all on public.video_projects for all
@@ -62,9 +49,6 @@ drop policy if exists video_scenes_owner_all on public.video_scenes;
 create policy video_scenes_owner_all on public.video_scenes for all
   using (exists(select 1 from public.video_projects p where p.id=project_id and p.user_id=auth.uid()))
   with check (exists(select 1 from public.video_projects p where p.id=project_id and p.user_id=auth.uid()));
-
-drop policy if exists video_renders_owner_read on public.video_renders;
-create policy video_renders_owner_read on public.video_renders for select using (user_id=auth.uid());
 
 drop trigger if exists video_projects_touch on public.video_projects;
 create trigger video_projects_touch before update on public.video_projects for each row execute function public.touch_updated_at();
@@ -124,6 +108,16 @@ on conflict(id) do update set file_size_limit=excluded.file_size_limit,allowed_m
 
 drop policy if exists video_renders_storage_select on storage.objects;
 create policy video_renders_storage_select on storage.objects for select to authenticated
+  using(bucket_id='video-renders' and (storage.foldername(name))[1]=auth.uid()::text);
+drop policy if exists video_renders_storage_insert on storage.objects;
+create policy video_renders_storage_insert on storage.objects for insert to authenticated
+  with check(bucket_id='video-renders' and (storage.foldername(name))[1]=auth.uid()::text);
+drop policy if exists video_renders_storage_update on storage.objects;
+create policy video_renders_storage_update on storage.objects for update to authenticated
+  using(bucket_id='video-renders' and (storage.foldername(name))[1]=auth.uid()::text)
+  with check(bucket_id='video-renders' and (storage.foldername(name))[1]=auth.uid()::text);
+drop policy if exists video_renders_storage_delete on storage.objects;
+create policy video_renders_storage_delete on storage.objects for delete to authenticated
   using(bucket_id='video-renders' and (storage.foldername(name))[1]=auth.uid()::text);
 
 commit;

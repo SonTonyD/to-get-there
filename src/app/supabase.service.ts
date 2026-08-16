@@ -220,7 +220,13 @@ export class SupabaseService {
     query = tripDayId ? query.eq('trip_day_id', tripDayId) : query.is('trip_day_id', null);
     const { data, error } = await query.order('updated_at', { ascending: false }).limit(1).maybeSingle();
     if (error) throw error;
-    return data ? { ...data, scenes: (data.video_scenes ?? []).sort((a: any, b: any) => a.position - b.position) } : null;
+    if (!data) return null;
+    let exportUrl: string | undefined;
+    if (data.latest_export_path) {
+      const { data: signed } = await this.db.storage.from('video-renders').createSignedUrl(data.latest_export_path, 3600);
+      exportUrl = signed?.signedUrl;
+    }
+    return { ...data, export_url: exportUrl, scenes: (data.video_scenes ?? []).sort((a: any, b: any) => a.position - b.position) };
   }
 
   async generateVideoStoryboard(payload: Record<string, unknown>) {
@@ -246,28 +252,16 @@ export class SupabaseService {
     return data;
   }
 
-  async requestVideoRender(projectId: string) {
-    const { data, error } = await this.db.functions.invoke('request-video-render', { body: { projectId } });
+  async uploadBrowserVideo(projectId: string, blob: Blob, fileName: string) {
+    const user = await this.currentUser(); if (!user) throw new Error('Ta session a expiré, reconnecte-toi.');
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '-');
+    const storagePath = `${user.id}/${projectId}/${Date.now()}-${safeName}`;
+    const { error: uploadError } = await this.db.storage.from('video-renders').upload(storagePath, blob, { contentType: 'video/mp4' });
+    if (uploadError) throw uploadError;
+    const { error } = await this.db.from('video_projects').update({ latest_export_path: storagePath, exported_at: new Date().toISOString(), status: 'ready' }).eq('id', projectId).eq('user_id', user.id);
     if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-    return data.render;
-  }
-
-  async videoRender(renderId: string) {
-    const { data, error } = await this.db.from('video_renders').select('*').eq('id', renderId).single();
-    if (error) throw error;
-    if (data.status === 'completed' && data.storage_path) {
-      const { data: signed } = await this.db.storage.from('video-renders').createSignedUrl(data.storage_path, 3600);
-      return { ...data, url: signed?.signedUrl };
-    }
-    return data;
-  }
-
-  async latestVideoRender(projectId: string) {
-    const { data, error } = await this.db.from('video_renders').select('*').eq('project_id', projectId).order('created_at', { ascending: false }).limit(1).maybeSingle();
-    if (error) throw error;
-    if (!data) return null;
-    return this.videoRender(data.id);
+    const { data: signed } = await this.db.storage.from('video-renders').createSignedUrl(storagePath, 3600);
+    return { storagePath, url: signed?.signedUrl };
   }
 
   async saveExpense(tripId: string, dayId: string, expense: { label: string; amount: number; currency: string; convertedAmount: number; convertedCurrency: string; category: string; date: string }) {
