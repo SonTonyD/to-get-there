@@ -120,9 +120,9 @@ export class SupabaseService {
     const { data, error } = await this.db.from('day_journals')
       .upsert({ trip_day_id: dayId, ...journal }, { onConflict: 'trip_day_id' }).select().single();
     if (error) throw error;
+    const{error:deleteError}=await this.db.from('journal_events').delete().eq('journal_id', data.id);if(deleteError)throw deleteError;
     if (events.length) {
-      await this.db.from('journal_events').delete().eq('journal_id', data.id);
-      const { error: eventError } = await this.db.from('journal_events').insert(events.map((event, index) => ({ journal_id: data.id, event_order: index + 1, event_type: event.type ?? event.event_type ?? 'moment', event_time: event.time ?? event.event_time ?? null, title: event.title, description: event.description, place_text: event.place ?? event.place_text ?? null, category: event.category ?? null })));
+      const { error: eventError } = await this.db.from('journal_events').insert(events.map((event, index) => ({ journal_id: data.id, event_order: index + 1, event_type: event.type ?? event.event_type ?? 'moment', event_time: event.time ?? event.event_time ?? null, title: event.title, description: event.description, place_text: event.place ?? event.place_text ?? null, category: event.category ?? null,confidence:event.confidence??null,review_reason:event.review_reason??null,review_status:event.review_status??'not_required' })));
       if (eventError) throw eventError;
     }
     const dayNote = String(journal['summary'] || journal['title'] || '').trim();
@@ -177,14 +177,15 @@ export class SupabaseService {
     const path = `${userId}/${tripId}/${dayId}/${crypto.randomUUID()}.${extension}`;
     const { error } = await this.db.storage.from('trip-media').upload(path, file, { contentType: file.type });
     if (error) throw error;
-    const { data, error: rowError } = await this.db.from('trip_media').insert({ trip_day_id: dayId, storage_path: path, media_type: file.type.startsWith('video') ? 'video' : file.type.startsWith('audio') ? 'audio' : 'photo', original_name: file.name }).select().single();
+    const { count } = await this.db.from('trip_media').select('*',{count:'exact',head:true}).eq('trip_day_id',dayId);
+    const { data, error: rowError } = await this.db.from('trip_media').insert({ trip_day_id: dayId, storage_path: path, media_type: file.type.startsWith('video') ? 'video' : file.type.startsWith('audio') ? 'audio' : 'photo', original_name: file.name,sort_order:count??0 }).select().single();
     if (rowError) throw rowError;
     const { data: signed } = await this.db.storage.from('trip-media').createSignedUrl(path, 3600);
     return { ...data, url: signed?.signedUrl };
   }
 
   async media(dayId: string) {
-    const { data, error } = await this.db.from('trip_media').select('*').eq('trip_day_id', dayId).order('created_at');
+    const { data, error } = await this.db.from('trip_media').select('*').eq('trip_day_id', dayId).order('sort_order').order('created_at');
     if (error) throw error;
     return Promise.all((data ?? []).map(async item => {
       const { data: signed } = await this.db.storage.from('trip-media').createSignedUrl(item.storage_path, 3600);
@@ -201,6 +202,20 @@ export class SupabaseService {
       const { data: signed } = await this.db.storage.from('trip-media').createSignedUrl(item.storage_path, 3600);
       return { ...item, url: signed?.signedUrl };
     }));
+  }
+
+  async reorderMedia(items:any[]){const results=await Promise.all(items.map((item,index)=>this.db.from('trip_media').update({sort_order:index}).eq('id',item.id)));const failed=results.find(result=>result.error);if(failed?.error)throw failed.error;}
+  async setMediaSelected(id:string,selected:boolean){const{error}=await this.db.from('trip_media').update({selected}).eq('id',id);if(error)throw error;}
+  async saveJournalStep(dayId:string,lastStep:number){const{error}=await this.db.from('day_journals').upsert({trip_day_id:dayId,last_step:lastStep},{onConflict:'trip_day_id'});if(error)throw error;}
+
+  async tripCommandCenter(tripId:string){
+    const[{data:days,error:daysError},{data:publication,error:publicationError},{data:film,error:filmError}]=await Promise.all([
+      this.db.from('trip_days').select('id,day_number,day_date,notes,day_journals(id,title,summary,raw_text,status,last_step,updated_at,journal_events(id,confidence,review_status),place_candidates(id,status,confidence)),trip_media(id,media_type,selected,event_id,sort_order),expenses(id)').eq('trip_id',tripId).order('day_number'),
+      this.db.from('trip_publications').select('slug,published_at,updated_at').eq('trip_id',tripId).maybeSingle(),
+      this.db.from('video_projects').select('id,title,status,updated_at,exported_at,latest_export_path').eq('trip_id',tripId).order('updated_at',{ascending:false}).limit(1).maybeSingle()
+    ]);
+    if(daysError)throw daysError;if(publicationError)throw publicationError;if(filmError)throw filmError;
+    return{days:days??[],publication,film};
   }
 
   async transcribe(storagePath: string) {

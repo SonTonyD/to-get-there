@@ -439,7 +439,7 @@
                 : "✦ Voyage public"
             }}</span>
             <h2>{{ selectedTrip.title }}</h2>
-            <div class="hero-memory-actions"><button class="hero-read-button" [class.button-loading]="openingReader" [disabled]="openingReader" (click)="openOwnerReader()"><i></i>{{ openingReader ? 'Préparation du carnet…' : '◉ Lire le carnet' }}</button><button class="hero-film-button" (click)="openVideoStudio()">▶ Créer mon film</button></div>
+            <div class="hero-memory-actions">@if(nextDayProgress){<button class="trip-next-action" (click)="continueNextDay()">{{nextDayProgress.state==='empty'?'＋ Commencer':nextDayProgress.state==='review'?'✓ Vérifier':'→ Continuer'}} le jour {{nextDayProgress.number}}</button>}<button class="hero-read-button" [class.button-loading]="openingReader" [disabled]="openingReader" (click)="openOwnerReader()"><i></i>{{ openingReader ? 'Préparation du carnet…' : '◉ Lire' }}</button></div>
             <p>
               📍 {{ selectedTrip.country }}　·　{{
                 formatDate(selectedTrip.startDate)
@@ -455,6 +455,7 @@
             ><small>{{ selectedTrip.days.length }} jours d’évasion</small>
           </div>
         </div>
+        @if(tripCommandCenter){<section class="trip-command-center"><header><div><span class="eyebrow">Centre de pilotage</span><h3>Ton voyage, en un coup d’œil</h3></div><span>{{toldDaysCount}} / {{selectedTrip.days.length}} journées racontées</span></header><div class="command-metrics"><article><i>✎</i><div><b>{{toldDaysCount}}</b><small>journées racontées</small></div></article><article [class.attention]="unusedPhotosCount"><i>▧</i><div><b>{{unusedPhotosCount}}</b><small>photos non utilisées</small></div></article><article [class.attention]="pendingPlacesCount"><i>⌖</i><div><b>{{pendingPlacesCount}}</b><small>lieux à confirmer</small></div></article><article [class.attention]="missingExpensesCount"><i>€</i><div><b>{{missingExpensesCount}}</b><small>journées sans dépense</small></div></article><article [class.complete]="tripCommandCenter.publication"><i>↗</i><div><b>{{tripCommandCenter.publication?'Publié':'Privé'}}</b><small>{{tripCommandCenter.publication?'Page publique disponible':'Voyage non publié'}}</small></div></article><article [class.complete]="tripCommandCenter.film"><i>▶</i><div><b>{{tripCommandCenter.film?.title||'Aucun film'}}</b><small>{{tripCommandCenter.film?(tripCommandCenter.film.status==='ready'?'Film prêt':'Projet en cours'):'Créer un souvenir vidéo'}}</small></div></article></div></section>}
         <nav class="trip-tabs" aria-label="Sections du voyage">
           <button [class.active]="tripTab === 'journal'" (click)="setTripTab('journal')"><span>✎</span> Journal</button>
           <button [class.active]="tripTab === 'map'" (click)="setTripTab('map')"><span>⌖</span> Carte</button>
@@ -471,7 +472,7 @@
               <span class="badge">{{ selectedTrip.days.length }} jours</span>
             </div>
             @for (day of selectedTrip.days; track (day.id || day.date || 'day') + '-' + $index) {
-              <div class="day-row" (click)="openJournal(day)">
+              <div class="day-row journey-timeline-row" [class.next-day]="progressForDay(day)?.dayId===nextDayProgress?.dayId" [ngClass]="'state-'+(progressForDay(day)?.state||'empty')" (click)="openJournal(day,progressForDay(day)?.step)">
                 <div class="day-number">
                   {{ day.label.replace("Jour ", "") }}
                 </div>
@@ -479,39 +480,14 @@
                   <strong>{{ day.label }}</strong
                   ><span>{{ formatDate(day.date) }}</span>
                 </div>
-                <div class="day-placeholder">
-                  {{ day.note || "Rien de prévu… et c’est très bien." }}
-                </div>
-                <button aria-label="Ajouter">＋</button>
+                <div class="day-placeholder"><b>{{progressForDay(day)?.label||'À commencer'}}</b><span>{{progressForDay(day)?.detail||day.note||'Aucun souvenir ajouté'}}</span><small>@if(progressForDay(day)?.photoCount){▧ {{progressForDay(day)?.photoCount}} photo{{(progressForDay(day)?.photoCount||0)>1?'s':''}}}@if(progressForDay(day)?.pendingPlaces){ · ⌖ {{progressForDay(day)?.pendingPlaces}} lieu{{(progressForDay(day)?.pendingPlaces||0)>1?'x':''}} à confirmer}@if(progressForDay(day)?.expenseCount){ · € {{progressForDay(day)?.expenseCount}} dépense{{(progressForDay(day)?.expenseCount||0)>1?'s':''}}}</small></div>
+                <span class="day-state-dot"></span><button [attr.aria-label]="progressForDay(day)?.state==='complete'?'Ouvrir':'Continuer'">{{progressForDay(day)?.state==='complete'?'✓':'→'}}</button>
               </div>
             }
           </div>
           <aside>
-            <div class="paper-card recap">
-              <h3>En un coup d’œil</h3>
-              <div>
-                <span>✈</span>
-                <p>
-                  <small>Destination</small><b>{{ selectedTrip.country }}</b>
-                </p>
-              </div>
-              <div>
-                <span>◷</span>
-                <p>
-                  <small>Durée</small
-                  ><b>{{ selectedTrip.days.length }} jours</b>
-                </p>
-              </div>
-              <div>
-                <span>♡</span>
-                <p>
-                  <small>Budget</small
-                  ><b>{{
-                    formatMoney(selectedTrip.budget, selectedTrip.currency)
-                  }}</b>
-                </p>
-              </div>
-            </div>
+            <div class="paper-card next-step-card">@if(nextDayProgress){<span class="eyebrow">Prochaine étape</span><b>Jour {{nextDayProgress.number}}</b><h3>{{nextDayProgress.label}}</h3><p>{{nextDayProgress.detail}}</p><button class="primary wide" (click)="continueNextDay()">{{nextDayProgress.state==='empty'?'Commencer cette journée':'Reprendre exactement ici'}} →</button>}@else{<span class="eyebrow">Carnet complet</span><h3>Chaque journée est racontée ✦</h3><button class="primary wide" (click)="openOwnerReader()">Lire le carnet</button>}</div>
+            <div class="dashboard-secondary-actions"><button class="secondary wide" (click)="openOwnerReader()">◉ Lire le carnet</button><button class="secondary wide" (click)="openVideoStudio()">▶ {{tripCommandCenter?.film?'Continuer le film':'Créer un film'}}</button></div>
             <button class="secondary wide">Modifier le voyage</button
             ><button
               class="danger-link wide"
@@ -705,11 +681,12 @@
           <button class="autosave" [class.saving]="autosaveState === 'saving'" [class.saved]="autosaveState === 'saved'" [class.error]="autosaveState === 'error'" [disabled]="autosaveState !== 'error'" (click)="retryLastAction()">{{ autosaveState === 'pending' ? '● Modifications en attente' : autosaveState === 'saving' ? '◌ Enregistrement…' : autosaveState === 'saved' ? '✓ Enregistré' : autosaveState === 'error' ? '⚠ Réessayer l’enregistrement' : '☁ Brouillon automatique' }}</button>
         </div>
         <nav class="journal-stepper" aria-label="Étapes de la journée">
-          <button [class.active]="journalStep === 1" [class.done]="journalStep > 1" (click)="setJournalStep(1)"><b>1</b><span>Souvenirs<small>Photos et vidéos</small></span></button>
-          <button [class.active]="journalStep === 2" [class.done]="journalStep > 2" (click)="setJournalStep(2)"><b>2</b><span>Récit<small>Écrit ou vocal</small></span></button>
-          <button [class.active]="journalStep === 3" [class.done]="journalStep > 3" (click)="setJournalStep(3)"><b>3</b><span>Enrichir<small>Lieux et dépenses</small></span></button>
-          <button [class.active]="journalStep === 4" (click)="setJournalStep(4)"><b>4</b><span>Finaliser<small>Ta page de carnet</small></span></button>
+          <button [class.active]="journalStep === 1" [class.done]="journalStep > 1" (click)="setJournalStep(1)"><b>1</b><span>Ajouter<small>Photos et vidéos</small></span></button>
+          <button [class.active]="journalStep === 2" [class.done]="journalStep > 2" (click)="setJournalStep(2)"><b>2</b><span>Raconter<small>Écrit ou vocal</small></span></button>
+          <button [class.active]="journalStep === 3" [class.done]="journalStep > 3" (click)="setJournalStep(3)"><b>3</b><span>Vérifier<small>Uniquement les incertitudes</small></span></button>
+          <button [class.active]="journalStep === 4" (click)="setJournalStep(4)"><b>4</b><span>Finaliser<small>Aperçu et publication</small></span></button>
         </nav>
+        @if(journalStep===3){<section class="paper-card review-center"><header><div><span class="eyebrow">Validation intelligente</span><h3>Vérifie seulement ce qui est incertain</h3><p>Tout le reste est déjà prêt. Tu gardes toujours le dernier mot.</p></div><div class="review-score"><b>{{pendingJournalPlaces.length+uncertainEvents.length}}</b><small>à vérifier</small></div></header><div class="review-summary"><span [class.done]="!pendingJournalPlaces.length">⌖ {{pendingJournalPlaces.length}} lieu{{pendingJournalPlaces.length>1?'x':''}}</span><span [class.done]="!uncertainEvents.length">◷ {{uncertainEvents.length}} événement{{uncertainEvents.length>1?'s':''}}</span></div>@if(uncertainEvents.length){<div class="uncertain-events"><h4>Chronologie à confirmer</h4>@for(event of uncertainEvents;track (event.id||event.event_order||$index)){<article><div><span>{{event.time?event.time.slice(0,5):'Horaire inconnu'}}</span><b>{{event.title}}</b><p>{{event.review_reason||'L’IA manque d’éléments pour confirmer ce moment.'}}</p><small>Confiance IA · {{((event.confidence||0)*100)|number:'1.0-0'}}%</small></div><button (click)="confirmEvent(event)">✓ C’est correct</button></article>}</div>}@else{<div class="review-complete">✓ La chronologie ne contient plus d’incertitude.</div>}<button class="primary review-next" [disabled]="pendingJournalPlaces.length||uncertainEvents.length" (click)="setJournalStep(4)">Voir ma page finale →</button></section>}
         <div class="journal-workspace">
           <div class="journal-editor">
             <div class="paper-card memory-input">
@@ -717,12 +694,13 @@
               <h3>Que s’est-il passé ?</h3>
               <div class="media-actions">
                 <label class="secondary upload" [class.disabled]="uploadingMedia"
-                  >📸 Photos & vidéos<input
+                  >▧ Depuis la galerie<input
                     type="file"
                     accept="image/*,video/*"
                     multiple
                     [disabled]="uploadingMedia"
                     (change)="addMedia($event)" /></label
+                ><label class="secondary upload camera-upload" [class.disabled]="uploadingMedia">📷 Prendre une photo<input type="file" accept="image/*" capture="environment" [disabled]="uploadingMedia" (change)="addMedia($event)" /></label
                 ><button
                   class="secondary record"
                   [class.recording]="recording"
@@ -740,24 +718,31 @@
                       class="media-thumb"
                       [class.audio]="media.media_type === 'audio'"
                       [class.selected-cover]="media.id === journal.coverMediaId"
-                      (click)="
-                        media.media_type === 'photo' && selectCover(media)
-                      "
+                      [class.media-excluded]="media.selected === false"
+                      [draggable]="true"
+                      (dragstart)="startMediaDrag(media)"
+                      (dragover)="$event.preventDefault()"
+                      (drop)="dropMedia(media)"
                     >
                       @if (media.media_type === "photo") {
                         <img [src]="media.url" [alt]="media.original_name" />
                         @if (media.id === journal.coverMediaId) {
                           <span class="cover-badge">Couverture</span>
                         }
+                        @if (media.selected === false) {
+                          <span class="unused-badge">Non utilisée</span>
+                        }
                       } @else if (media.media_type === "video") {
                         <video [src]="media.url"></video><span>▶</span>
                       } @else {
                         <b>🎙️</b><small>Récit vocal</small>
                       }
+                      <div class="media-thumb-actions"><button (click)="$event.stopPropagation(); moveMedia(media,-1)" aria-label="Déplacer à gauche">←</button><button (click)="$event.stopPropagation(); moveMedia(media,1)" aria-label="Déplacer à droite">→</button>@if(media.media_type === 'photo'){<button class="media-use" (click)="$event.stopPropagation(); toggleMediaSelection(media)">{{media.selected === false ? '＋ Utiliser' : '✓ Incluse'}}</button><button class="media-cover-action" [disabled]="media.id === journal.coverMediaId || media.selected === false" (click)="$event.stopPropagation(); selectCover(media)">Couverture</button>}</div>
                     </div>
                   }
                 </div>
               }
+              @if (journalStep === 1) { <div class="quick-add-hint"><span>↔</span><p><b>Choisis et organise tes souvenirs</b><small>Glisse les médias pour les réordonner. Sur mobile, utilise les flèches.</small></p></div><button class="primary wide quick-next" (click)="setJournalStep(2)">{{ journalMedia.length ? 'Continuer avec ' + journalMedia.length + ' souvenir' + (journalMedia.length > 1 ? 's' : '') : 'Continuer sans photo' }} →</button> }
               <label
                 >Ton récit écrit ou retranscrit<textarea
                   class="story-input"
@@ -791,7 +776,7 @@
                 [class.timeline-layout]="journal.layout === 'timeline'"
               >
                 <div class="generated-toolbar">
-                  <span class="eyebrow">2 · Ta page générée</span>
+                  <span class="eyebrow">Aperçu en direct · chaque modification est enregistrée</span>
                   <div class="layout-switch">
                     <button
                       [class.active]="journal.layout === 'scrapbook'"
@@ -903,9 +888,9 @@
                     Enregistrer le brouillon</button
                   ><button
                     class="primary"
-                    (click)="journal.status = 'published'; saveJournal(false)"
+                    (click)="completeJournalDay()"
                   >
-                    Enregistrer ma journée ✦
+                    Terminer cette journée ✦
                   </button>
                 </div>
               </div>
@@ -931,6 +916,7 @@
                     >{{ place.city || selectedTrip.country }} ·
                     {{ place.category }}</small
                   >
+                  @if (place.confidence != null) { <div class="place-confidence" [class.low]="place.confidence < .78"><i [style.width.%]="place.confidence * 100"></i><span>{{ place.confidence < .78 ? 'Suggestion incertaine' : 'Suggestion probable' }} · {{ place.confidence * 100 | number:'1.0-0' }}%</span></div> }
                   @if (!place.status || place.status === "pending") {
                     <div>
                       <button [disabled]="place.resolving" (click)="confirmPlace(place, true)">

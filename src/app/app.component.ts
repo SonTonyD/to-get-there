@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter, Subscription } from 'rxjs';
@@ -10,6 +10,7 @@ import { BrowserVideoRendererService, BrowserVideoProgress } from './browser-vid
 import { AppNavigationService, AppRouteState, AppScreen, NavigationContext } from './app-navigation.service';
 import { TravelReaderComponent } from './features/reader/travel-reader.component';
 import { MessagingDomainComponent } from './features/messaging/messaging-domain.component';
+import { buildTripDayProgress, DayProgress } from './features/trips/trip-progress';
 
 type Screen = AppScreen;
 type AuthMode = 'login' | 'signup' | 'forgot';
@@ -54,6 +55,7 @@ export class AppComponent implements OnInit, OnDestroy {
   expense = { label: '', amount: null as number | null, convertedAmount: null as number | null, currency: 'EUR', category: 'Restauration' };
   editingExpenseId='';expenseSaving=false;
   expenses: any[] = []; placeVisits: any[] = []; tripStats: any = null;
+  tripCommandCenter:any=null;dayProgress:DayProgress[]=[];
   publication = { photos: true, story: true, recommendations: true, budget: false, design: 'scrapbook' };
   exploreSearch = ''; exploreDuration='all';exploreSeason='all';exploreType='all'; publicTrips: any[] = []; selectedPublicTrip: any = null;
   selectedPublicSlug='';publicProfileUsername='';activeDestinationId='';activePlaceId='';
@@ -105,6 +107,7 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnDestroy(){this.navigationSubscription?.unsubscribe();if(this.communityPollTimer)clearInterval(this.communityPollTimer);if(this.videoObjectUrl)URL.revokeObjectURL(this.videoObjectUrl)}
 
   go(screen: Screen,replaceUrl=false) {
+    if(this.screen==='journal'&&screen!=='journal'&&(this.autosaveState==='pending'||this.autosaveState==='saving'))void this.saveJournal(true);
     const context=this.navigationContext();
     const destination=this.navigation.routeFor(screen,context);
     const requiresAccount=this.navigation.privateScreens.has(screen)||(screen==='reader'&&context.readerOrigin!=='public');
@@ -283,22 +286,31 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   openTrip(trip: Trip) { this.selectedTrip = trip; this.tripTab='journal';this.go('dashboard'); this.loadTripInsights(); }
   setTripTab(tab:TripTab){this.tripTab=tab;if(tab==='map')setTimeout(()=>this.renderMap(),0)}
-  setJournalStep(step:JournalStep){if(step===4&&!this.journal.title&&!this.journal.events.length){this.notify('Génère d’abord ta journée.');return}this.journalStep=step;window.scrollTo({top:0,behavior:'smooth'})}
+  setJournalStep(step:JournalStep){if(step===4&&!this.journal.title&&!this.journal.events.length){this.notify('Génère d’abord ta journée.');return}this.journalStep=step;if(this.selectedDay?.id){localStorage.setItem(`journal-step-${this.selectedDay.id}`,String(step));void this.supabase.saveJournalStep(this.selectedDay.id,step).catch(()=>{})}window.scrollTo({top:0,behavior:'smooth'})}
   private defaultScrapbookDesign():ScrapbookDesign{return{style:'wanderlust',palette:'candy',paper:'grid',composition:'collage',font:'handwritten',decorations:'balanced',customAccent:'',customPaper:''}}
   get scrapbookDesignClasses(){const d=this.journal.design;return[`scrap-style-${d.style}`,`scrap-palette-${d.palette}`,`scrap-paper-${d.paper}`,`scrap-composition-${d.composition}`,`scrap-font-${d.font}`,`scrap-decor-${d.decorations}`]}
   get scrapbookDesignStyles(){return{'--scrap-accent':this.journal.design.customAccent||null,'--scrap-bg':this.journal.design.customPaper||null}}
   setScrapbookOption<K extends keyof ScrapbookDesign>(key:K,value:ScrapbookDesign[K]){this.journal.design={...this.journal.design,[key]:value};this.scheduleAutosave()}
   randomizeScrapbook(){const choices={style:['wanderlust','retro','botanical','nocturne'],palette:['candy','sunset','ocean','forest','mono','lavender'],paper:['grid','kraft','floral','clean'],composition:['collage','polaroid','postcard','filmstrip'],font:['handwritten','editorial','typewriter'],decorations:['minimal','balanced','maximal']} as const;const pick=(values:readonly string[])=>values[Math.floor(Math.random()*values.length)];this.journal.design={style:pick(choices.style),palette:pick(choices.palette),paper:pick(choices.paper),composition:pick(choices.composition),font:pick(choices.font),decorations:pick(choices.decorations),customAccent:'',customPaper:''} as ScrapbookDesign;this.scheduleAutosave();this.notify('Une nouvelle combinaison a été créée ✦')}
-  async loadTripInsights() { if (!this.selectedTrip) return; try { [this.expenses,this.placeVisits,this.tripStats] = await Promise.all([this.supabase.expenses(this.selectedTrip.id),this.supabase.placeVisits(this.selectedTrip.id),this.supabase.tripStatistics(this.selectedTrip.id)]); setTimeout(()=>this.renderMap(),0); } catch (error) { this.notify(this.errorMessage(error)); } }
+  async loadTripInsights() { if (!this.selectedTrip) return; try { [this.expenses,this.placeVisits,this.tripStats,this.tripCommandCenter] = await Promise.all([this.supabase.expenses(this.selectedTrip.id),this.supabase.placeVisits(this.selectedTrip.id),this.supabase.tripStatistics(this.selectedTrip.id),this.supabase.tripCommandCenter(this.selectedTrip.id)]);this.buildDayProgress(); setTimeout(()=>this.renderMap(),0); } catch (error) { this.notify(this.errorMessage(error)); } }
+  private buildDayProgress(){this.dayProgress=buildTripDayProgress(this.tripCommandCenter?.days??[])}
+  get nextDayProgress(){return this.dayProgress.find(day=>day.state!=='complete')??this.dayProgress.at(-1)??null}
+  get toldDaysCount(){return this.dayProgress.filter(day=>day.state==='complete'||day.state==='review'||(day.state==='draft'&&!!day.title)).length}
+  get unusedPhotosCount(){return this.dayProgress.reduce((total,day)=>total+day.unusedPhotos,0)}
+  get pendingPlacesCount(){return this.dayProgress.reduce((total,day)=>total+day.pendingPlaces,0)}
+  get missingExpensesCount(){const today=new Date().toISOString().slice(0,10);return this.dayProgress.filter(day=>day.date<=today&&day.expenseCount===0).length}
+  progressForDay(day:TripDay){return this.dayProgress.find(item=>item.dayId===day.id)}
+  continueNextDay(){const progress=this.nextDayProgress;if(!progress||!this.selectedTrip)return;const day=this.selectedTrip.days.find(item=>item.id===progress.dayId);if(day)void this.openJournal(day,progress.step)}
   private renderMap() { const element=document.getElementById('trip-map'); if (!element) return; this.map?.remove(); const points=this.placeVisits.filter(v=>v.places?.latitude!=null&&v.places?.longitude!=null); this.map=L.map(element).setView(points.length?[points[0].places.latitude,points[0].places.longitude]:[16.05,108.2],points.length?7:5); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(this.map); const bounds:L.LatLngExpression[]=[]; points.forEach(visit=>{const point:[number,number]=[visit.places.latitude,visit.places.longitude];bounds.push(point);const marker=L.circleMarker(point,{radius:9,color:'#76529a',fillColor:'#c8b6ff',fillOpacity:.9}).addTo(this.map!).bindTooltip(`${visit.places.name} · ${visit.places.city??''}`);marker.on('click',()=>{const day=this.selectedTrip?.days.find(item=>item.id===visit.trip_day_id);if(day)this.openJournal(day)});});if(bounds.length>1)this.map.fitBounds(L.latLngBounds(bounds),{padding:[30,30]}); }
-  async openJournal(day: TripDay) {
+  async openJournal(day: TripDay,preferredStep?:JournalStep) {
     if (!day.id) { this.notify('Cette journée doit être synchronisée avec Supabase.'); return; }
-    this.selectedDay = day;this.cancelExpenseEdit();this.journalEditing=false;this.journalStep=1; this.journal = { title: '', summary: '', rawText: '', layout: 'scrapbook', coverMediaId: '', status: 'draft', design:this.defaultScrapbookDesign(), events: [], places: [] }; this.journalMedia = []; this.go('journal');
+    this.selectedDay = day;this.cancelExpenseEdit();this.journalEditing=false;this.journalStep=preferredStep??1; this.journal = { title: '', summary: '', rawText: '', layout: 'scrapbook', coverMediaId: '', status: 'draft', design:this.defaultScrapbookDesign(), events: [], places: [] }; this.journalMedia = []; this.go('journal');
     try {
       const [saved, media] = await Promise.all([this.supabase.journal(day.id), this.supabase.media(day.id)]);
       this.journalMedia = media;
-      if (saved) this.journal = { title: saved.title ?? '', summary: saved.summary ?? '', rawText: saved.raw_text ?? '', layout: 'scrapbook', coverMediaId: saved.cover_media_id ?? '', status: saved.status ?? 'draft', design:{...this.defaultScrapbookDesign(),...(saved.design_settings??{})}, events: (saved.journal_events ?? []).sort((a: any,b: any) => a.event_order-b.event_order), places: saved.place_candidates ?? [] };
+      if (saved) this.journal = { title: saved.title ?? '', summary: saved.summary ?? '', rawText: saved.raw_text ?? '', layout: 'scrapbook', coverMediaId: saved.cover_media_id ?? '', status: saved.status ?? 'draft', design:{...this.defaultScrapbookDesign(),...(saved.design_settings??{})}, events: (saved.journal_events ?? []).sort((a: any,b: any) => a.event_order-b.event_order).map((event:any)=>({...event,time:event.event_time??event.time,place:event.place_text??event.place,type:event.event_type??event.type})), places: saved.place_candidates ?? [] };
       if (!this.journal.coverMediaId) this.journal.coverMediaId = this.photoMedia[0]?.id ?? '';
+      const localStep=Number(localStorage.getItem(`journal-step-${day.id}`)??0);const restored=preferredStep??(localStep>=1&&localStep<=4?localStep:Number(saved?.last_step??this.inferJournalStep()));this.journalStep=Math.min(4,Math.max(1,restored)) as JournalStep;
     } catch (error) { this.notify(this.errorMessage(error)); }
   }
   async addMedia(event: Event) {
@@ -323,15 +335,52 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   async generateJournal() {
     if (!this.selectedDay?.id || !this.journal.rawText.trim()) { this.notify('Raconte ou écris d’abord ta journée.'); return; }
-    try { this.generating = true;this.clearActionError('ai');this.aiProgress=18;this.aiStage='Transcription terminée';const stages=[{at:35,label:'Événements identifiés'},{at:58,label:'Lieux détectés'},{at:78,label:'Carnet en création'}];this.aiProgressTimer=setInterval(()=>{this.aiProgress=Math.min(this.aiProgress+4,88);const stage=[...stages].reverse().find(item=>this.aiProgress>=item.at);if(stage)this.aiStage=stage.label},500); const result = await this.supabase.generateJournal(this.selectedDay.id, this.journal.rawText, this.journalMedia.map(m => ({ id: m.id, type: m.media_type, name: m.original_name }))); this.journal.title = result.title; this.journal.summary = result.summary; this.journal.events = result.events ?? []; this.journal.places = result.placeCandidates ?? []; this.journal.layout='scrapbook'; this.journalEditing=false;this.aiProgress=100;this.aiStage='Carnet prêt'; await this.saveJournal(false);this.journalStep=3;window.scrollTo({top:0,behavior:'smooth'}); this.notify('Ta journée est prête · vérifie maintenant les lieux ✨'); }
+    try {
+      this.generating = true;
+      this.clearActionError('ai');
+      this.aiProgress = 18;
+      this.aiStage = 'Transcription terminée';
+      const stages = [
+        { at: 35, label: 'Événements identifiés' },
+        { at: 58, label: 'Lieux détectés' },
+        { at: 78, label: 'Carnet en création' },
+      ];
+      this.aiProgressTimer = setInterval(() => {
+        this.aiProgress = Math.min(this.aiProgress + 4, 88);
+        const stage = [...stages].reverse().find(item => this.aiProgress >= item.at);
+        if (stage) this.aiStage = stage.label;
+      }, 500);
+      const selectedMedia = this.journalMedia
+        .filter(media => media.selected !== false)
+        .map(media => ({ id: media.id, type: media.media_type, name: media.original_name }));
+      const result = await this.supabase.generateJournal(
+        this.selectedDay.id,
+        this.journal.rawText,
+        selectedMedia,
+      );
+      this.journal.title = result.title;
+      this.journal.summary = result.summary;
+      this.journal.events = result.events ?? [];
+      this.journal.places = result.placeCandidates ?? [];
+      this.journal.layout = 'scrapbook';
+      this.journalEditing = false;
+      this.journalStep = 3;
+      localStorage.setItem(`journal-step-${this.selectedDay.id}`, '3');
+      this.aiProgress = 100;
+      this.aiStage = 'Carnet prêt';
+      await this.saveJournal(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      this.notify('Ta journée est prête · vérifie maintenant les éléments incertains ✨');
+    }
     catch (error) { this.setActionError('ai',this.errorMessage(error),()=>this.generateJournal()); } finally { if(this.aiProgressTimer)clearInterval(this.aiProgressTimer);this.aiProgressTimer=undefined;this.generating = false; }
   }
   scheduleAutosave() { this.autosaveState='pending';clearTimeout(this.autosaveTimer); this.autosaveTimer = setTimeout(() => this.saveJournal(true), 900); }
   async saveJournal(silent = false) {
     if (!this.selectedDay?.id) return;
-    try { this.autosaveState='saving';await this.supabase.saveJournal(this.selectedDay.id, { title: this.journal.title, summary: this.journal.summary, raw_text: this.journal.rawText, layout: this.journal.layout, cover_media_id: this.journal.coverMediaId || null, status: this.journal.status,design_settings:this.journal.design }, this.journal.events); this.selectedDay.note = this.journal.summary || this.journal.title;this.autosaveState='saved'; if (!silent) this.notify('Brouillon enregistré'); }
+    try { this.autosaveState='saving';await this.supabase.saveJournal(this.selectedDay.id, { title: this.journal.title, summary: this.journal.summary, raw_text: this.journal.rawText, layout: this.journal.layout, cover_media_id: this.journal.coverMediaId || null, status: this.journal.status,design_settings:this.journal.design,last_step:this.journalStep }, this.journal.events); this.selectedDay.note = this.journal.summary || this.journal.title;this.autosaveState='saved'; if (!silent) this.notify('Brouillon enregistré'); }
     catch (error) { this.autosaveState='error';this.setActionError('autosave',this.errorMessage(error),()=>this.saveJournal(silent));if (!silent) this.notify(this.errorMessage(error)); }
   }
+  async completeJournalDay(){if(this.pendingJournalPlaces.length||this.uncertainEvents.length){this.journalStep=3;this.notify('Vérifie d’abord les éléments incertains.');return}this.journal.status='published';this.journalStep=4;await this.saveJournal(false);if(this.autosaveState==='error')return;await this.loadTripInsights();this.go('dashboard');this.notify('Journée terminée · ton carnet avance ✦')}
   async confirmPlace(place: any, decision: boolean) {
     if (!place.id) return;
     if (!decision) { place.status='rejected'; try { await this.supabase.updatePlaceCandidate(place.id,'rejected'); } catch(error){place.status='pending';this.notify(this.errorMessage(error))} return; }
@@ -340,10 +389,22 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   async choosePlace(place:any,match:any){if(!this.selectedDay?.id)return;try{place.resolving=true;const result=await this.supabase.confirmPlaceCandidate(place,match,this.selectedDay.id);place.status='confirmed';place.visitId=result.visit.id;place.latitude=match.latitude;place.longitude=match.longitude;place.city=match.city;place.matches=[];this.notify('Lieu confirmé · il apparaîtra sur la carte ✦')}catch(error){this.notify(this.errorMessage(error))}finally{place.resolving=false}}
   async ratePlace(place: any, field: 'liked' | 'recommended', value: boolean) { place[field] = value; try { if (place.visitId) await this.supabase.ratePlaceVisit(place.visitId, { [field]: value }); } catch (error) { this.notify(this.errorMessage(error)); } }
-  get photoMedia() { return this.journalMedia.filter(media => media.media_type === 'photo' && media.url); }
+  private inferJournalStep():JournalStep{if(!this.journalMedia.length)return 1;if(!this.journal.rawText.trim())return 2;if(!this.journal.title&&!this.journal.events.length)return 2;if(this.pendingJournalPlaces.length||this.uncertainEvents.length)return 3;return 4}
+  get photoMedia() { return this.journalMedia.filter(media => media.media_type === 'photo' && media.url&&media.selected!==false); }
+  get allPhotoMedia(){return this.journalMedia.filter(media=>media.media_type==='photo'&&media.url)}
   get coverPhoto() { return this.photoMedia.find(media => media.id === this.journal.coverMediaId) ?? this.photoMedia[0] ?? null; }
   get galleryPhotos() { return this.photoMedia.filter(media => media.id !== this.coverPhoto?.id).slice(0, 3); }
   async selectCover(media: any) { this.journal.coverMediaId = media.id; if(this.selectedTrip){this.selectedTrip.coverUrl=media.url;try{await this.supabase.setTripCover(this.selectedTrip.id,media.storage_path)}catch(error){this.notify(this.errorMessage(error))}} this.scheduleAutosave(); }
+  private draggedMedia:any=null;
+  startMediaDrag(media:any){this.draggedMedia=media}
+  async dropMedia(target:any){if(!this.draggedMedia||this.draggedMedia.id===target.id)return;const from=this.journalMedia.findIndex(item=>item.id===this.draggedMedia.id);const to=this.journalMedia.findIndex(item=>item.id===target.id);const reordered=[...this.journalMedia];const[moved]=reordered.splice(from,1);reordered.splice(to,0,moved);this.journalMedia=reordered;this.draggedMedia=null;try{await this.supabase.reorderMedia(reordered);this.scheduleAutosave()}catch(error){this.notify(this.errorMessage(error))}}
+  async moveMedia(media:any,direction:-1|1){const index=this.journalMedia.findIndex(item=>item.id===media.id);const target=index+direction;if(index<0||target<0||target>=this.journalMedia.length)return;const reordered=[...this.journalMedia];[reordered[index],reordered[target]]=[reordered[target],reordered[index]];this.journalMedia=reordered;try{await this.supabase.reorderMedia(reordered);this.scheduleAutosave()}catch(error){this.notify(this.errorMessage(error))}}
+  async toggleMediaSelection(media:any){const selected=media.selected===false;media.selected=selected;if(!selected&&this.journal.coverMediaId===media.id)this.journal.coverMediaId=this.photoMedia[0]?.id??'';try{await this.supabase.setMediaSelected(media.id,selected);this.scheduleAutosave()}catch(error){media.selected=!selected;this.notify(this.errorMessage(error))}}
+  get pendingJournalPlaces(){return this.journal.places.filter((place:any)=>!place.status||place.status==='pending')}
+  get uncertainEvents(){return this.journal.events.filter((event:any)=>event.review_status==='pending'||Number(event.confidence??1)<.78)}
+  confirmEvent(event:any){event.review_status='confirmed';this.scheduleAutosave()}
+
+  @HostListener('document:visibilitychange') persistHiddenJournal(){if(document.visibilityState==='hidden'&&this.screen==='journal'&&this.autosaveState==='pending')void this.saveJournal(true)}
   async addExpense(){if(!this.selectedTrip||!this.selectedDay?.id||!this.expense.label.trim()||!this.expense.amount||this.expense.amount<=0||this.expenseSaving)return;const converted=this.expense.currency===this.selectedTrip.currency?this.expense.amount:this.expense.convertedAmount;if(converted==null||converted<=0){this.notify(`Indique l’équivalent en ${this.selectedTrip.currency}`);return}this.expenseSaving=true;try{const payload={label:this.expense.label.trim(),amount:this.expense.amount,currency:this.expense.currency,convertedAmount:converted,convertedCurrency:this.selectedTrip.currency,category:this.expense.category,date:this.selectedDay.date};const saved=this.editingExpenseId?await this.supabase.updateExpense(this.editingExpenseId,this.selectedTrip.id,this.selectedDay.id,payload):await this.supabase.saveExpense(this.selectedTrip.id,this.selectedDay.id,payload);const index=this.expenses.findIndex(item=>item.id===saved.id);if(index>=0)this.expenses[index]=saved;else this.expenses.push(saved);this.expenses=[...this.expenses].sort((a,b)=>String(a.expense_date).localeCompare(String(b.expense_date)));const edited=!!this.editingExpenseId;this.cancelExpenseEdit();this.notify(edited?'Dépense modifiée':'Dépense ajoutée')}catch(error){this.notify(this.errorMessage(error))}finally{this.expenseSaving=false}}
   async editExpense(item:any){const day=this.selectedTrip?.days.find(candidate=>candidate.id===item.trip_day_id);if(!day){this.notify('La journée liée à cette dépense est introuvable.');return}await this.openJournal(day);this.editingExpenseId=item.id;this.expense={label:item.label??item.description??'',amount:Number(item.amount),convertedAmount:item.converted_amount==null?null:Number(item.converted_amount),currency:item.currency,category:item.category||'Autre'};setTimeout(()=>document.querySelector('.expense-panel')?.scrollIntoView({behavior:'smooth',block:'center'}),0)}
   cancelExpenseEdit(){this.editingExpenseId='';this.expense={label:'',amount:null,convertedAmount:null,currency:this.selectedTrip?.currency??'EUR',category:'Restauration'}}
@@ -352,7 +413,7 @@ export class AppComponent implements OnInit, OnDestroy {
   get dailyAverage(){return this.selectedTrip?.days.length?this.spentTotal/this.selectedTrip.days.length:0}
   categoryTotal(category:string){return this.expenses.filter(e=>e.category===category).reduce((sum,e)=>sum+Number(e.converted_amount??e.amount),0)}
   async completeTrip(){if(!this.selectedTrip||this.completingTrip)return;this.completingTrip=true;this.clearActionError('complete-trip');try{this.tripStats=await this.supabase.finishTrip(this.selectedTrip.id);this.notify('Voyage terminé · ta page en chiffres est prête !')}catch(error){this.setActionError('complete-trip',this.errorMessage(error),()=>this.completeTrip())}finally{this.completingTrip=false}}
-  async publishTrip(){if(!this.selectedTrip||this.publishingTrip)return;this.publishingTrip=true;this.publishedSlug='';this.clearActionError('publication');this.publishProgress=8;this.publishStage='Préparation du carnet';const stages=[{at:24,label:'Assemblage des journées'},{at:43,label:'Sélection des contenus publics'},{at:62,label:'Copie sécurisée des photos'},{at:82,label:'Création de la page publique'}];this.publishProgressTimer=setInterval(()=>{this.publishProgress=Math.min(this.publishProgress+3,92);const stage=[...stages].reverse().find(item=>this.publishProgress>=item.at);if(stage)this.publishStage=stage.label},450);try{const slug=await this.supabase.publishTrip(this.selectedTrip.id,this.publication);this.publishProgress=100;this.publishStage='Voyage publié';this.publishedSlug=slug;this.notify('Ton voyage est maintenant public ✦')}catch(error){this.publishProgress=0;this.publishStage='';this.setActionError('publication',this.errorMessage(error),()=>this.publishTrip())}finally{if(this.publishProgressTimer)clearInterval(this.publishProgressTimer);this.publishProgressTimer=undefined;this.publishingTrip=false}}
+  async publishTrip(){if(!this.selectedTrip||this.publishingTrip)return;this.publishingTrip=true;this.publishedSlug='';this.clearActionError('publication');this.publishProgress=8;this.publishStage='Préparation du carnet';const stages=[{at:24,label:'Assemblage des journées'},{at:43,label:'Sélection des contenus publics'},{at:62,label:'Copie sécurisée des photos'},{at:82,label:'Création de la page publique'}];this.publishProgressTimer=setInterval(()=>{this.publishProgress=Math.min(this.publishProgress+3,92);const stage=[...stages].reverse().find(item=>this.publishProgress>=item.at);if(stage)this.publishStage=stage.label},450);try{const slug=await this.supabase.publishTrip(this.selectedTrip.id,this.publication);this.publishProgress=100;this.publishStage='Voyage publié';this.publishedSlug=slug;await this.loadTripInsights();this.notify('Ton voyage est maintenant public ✦')}catch(error){this.publishProgress=0;this.publishStage='';this.setActionError('publication',this.errorMessage(error),()=>this.publishTrip())}finally{if(this.publishProgressTimer)clearInterval(this.publishProgressTimer);this.publishProgressTimer=undefined;this.publishingTrip=false}}
   async submitTripFeedback(){if(!this.selectedTrip)return;try{await this.supabase.saveTripFeedback(this.selectedTrip.id,this.tripFeedback);this.notify('Merci, ton expérience aidera les prochains voyageurs.')}catch(error){this.notify(this.errorMessage(error))}}
   async openExplore(){this.go('explore');this.exploreLoading=true;this.clearActionError('explore');try{this.publicTrips=await this.supabase.explorePublicTrips();await this.runTravelSearch(false);await Promise.all(this.publicTrips.map(async item=>{const id=item.snapshot?.trip?.id;if(id)Object.assign(item.snapshot,await this.supabase.tripEngagement(id))}))}catch(error){this.setActionError('explore',this.errorMessage(error),()=>this.openExplore())}finally{this.exploreLoading=false}}
   async runTravelSearch(mark=true){if(mark)this.searchPerformed=true;try{this.searchResults=await this.supabase.searchTravelBase({query:this.exploreSearch,...this.searchFilters})}catch(error){if(mark)this.setActionError('explore',this.errorMessage(error),()=>this.runTravelSearch())}}
@@ -411,7 +472,7 @@ export class AppComponent implements OnInit, OnDestroy {
       if(this.videoProject?.id&&!this.applyingRoute)await this.router.navigateByUrl(`/video/${encodeURIComponent(this.videoProject.id)}`,{replaceUrl:true});
     }catch(error){this.videoError=this.errorMessage(error)}finally{this.videoBusy=''}
   }
-  closeVideoStudio(){if(this.videoOrigin==='journal'&&this.videoDay)this.go('journal');else this.go('dashboard')}
+  closeVideoStudio(){if(this.videoOrigin==='journal'&&this.videoDay)this.go('journal');else{this.go('dashboard');void this.loadTripInsights()}}
   async generateVideoStoryboard(config:VideoStudioConfig){
     if(!this.selectedTrip||this.videoBusy)return;this.videoBusy='generating';this.videoError='';
     try{const result=await this.supabase.generateVideoStoryboard({tripId:this.selectedTrip.id,tripDayId:this.videoDay?.id??null,format:config.format,targetDuration:config.targetDuration,style:{palette:config.palette,music:config.music,showText:config.showText,style:'scrapbook'}});this.videoProject=result.project;if(this.videoProject?.id)await this.router.navigateByUrl(`/video/${encodeURIComponent(this.videoProject.id)}`,{replaceUrl:true});this.notify('Storyboard prêt · personnalise maintenant ton film ✦')}
@@ -491,6 +552,6 @@ export class AppComponent implements OnInit, OnDestroy {
   private mapTrip(data: any): Trip { return { id: data.id, title: data.title, country: data.country, startDate: data.start_date, endDate: data.end_date, currency: data.currency, budget: data.planned_budget == null ? null : Number(data.planned_budget), visibility: data.visibility, coverUrl:data.cover_url, days: (data.trip_days ?? []).sort((a: any, b: any) => a.day_number - b.day_number).map((day: any) => ({ id: day.id, date: day.day_date, label: `Jour ${day.day_number}`, note: day.notes ?? '' })) }; }
   private async requireUser() { const user = await this.supabase.currentUser(); if (!user) throw new Error('Ta session a expiré, reconnecte-toi.'); return user; }
   private toList(value: string) { return value.split(',').map(item => item.trim()).filter(Boolean); }
-  private errorMessage(error: unknown) {if(error instanceof Error)return error.message;if(error&&typeof error==='object'){const value=error as Record<string,unknown>;const message=String(value['message']??'');const details=String(value['details']??'');const hint=String(value['hint']??'');if(String(value['code']??'')==='PGRST204'&&message.includes('design_settings'))return 'La migration scrapbook n’est pas encore active dans Supabase. Exécute le dernier bloc de script.sql puis recharge le cache du schéma.';return[message,details,hint].filter(part=>part&&part!=='null'&&part!=='undefined').join(' · ')||'Une erreur est survenue avec Supabase.'}return'Une erreur est survenue avec Supabase.'; }
+  private errorMessage(error: unknown) {if(error instanceof Error)return error.message;if(error&&typeof error==='object'){const value=error as Record<string,unknown>;const message=String(value['message']??'');const details=String(value['details']??'');const hint=String(value['hint']??'');if(String(value['code']??'')==='PGRST204'&&message.includes('design_settings'))return 'La migration scrapbook n’est pas encore active dans Supabase. Exécute le dernier bloc de script.sql puis recharge le cache du schéma.';if(/sort_order|last_step|review_status|review_reason|confidence/.test(message))return 'Le centre de pilotage nécessite la migration 20260818_trip_command_center.sql. Exécute-la dans Supabase puis recharge le cache du schéma.';return[message,details,hint].filter(part=>part&&part!=='null'&&part!=='undefined').join(' · ')||'Une erreur est survenue avec Supabase.'}return'Une erreur est survenue avec Supabase.'; }
   private communityErrorMessage(error:unknown){const message=this.errorMessage(error);const errors:Record<string,string>={AUTH_REQUIRED:'Reconnecte-toi pour envoyer un message.',USER_NOT_FOUND:'Ce profil n’existe plus.',CANNOT_MESSAGE_SELF:'Tu ne peux pas t’écrire à toi-même.',USER_BLOCKED:'Cette interaction est impossible car un blocage est actif.',MESSAGES_DISABLED:'Cette personne n’accepte pas de nouveaux messages.',FOLLOW_REQUIRED:'Cette personne accepte uniquement les messages des voyageurs qu’elle suit.',FRIENDSHIP_REQUIRED:'Cette personne accepte uniquement les messages de ses amis.'};const code=Object.keys(errors).find(key=>message.includes(key));return code?errors[code]:message}
 }
