@@ -66,6 +66,7 @@ export class AppComponent implements OnInit, OnDestroy {
   readonly months=['Tous les mois','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   readerPages: any[] = []; readerIndex = 0; readerOrigin: Screen = 'dashboard'; readerTrip: any = null;
   tripsLoading=false;exploreLoading=false;commentsLoading=false;inboxLoading=false;conversationLoading=false;messageSending=false;commentSending=false;
+  googleAuthLoading=false;
   creatingTrip=false;uploadingMedia=false;uploadProgress='';completingTrip=false;publishingTrip=false;openingReader=false;publishProgress=0;publishStage='';publishedSlug='';private publishProgressTimer?:ReturnType<typeof setInterval>;
   autosaveState:'idle'|'pending'|'saving'|'saved'|'error'='idle';aiProgress=0;aiStage='';actionError:{scope:string;message:string}|null=null;private retryCallback:(()=>Promise<void>)|null=null;private aiProgressTimer?:ReturnType<typeof setInterval>;
   communityProfile:any=null; relationship:any={}; commentsList:any[]=[]; commentDraft=''; inspirationsList:any[]=[];
@@ -85,6 +86,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private navigationSubscription?:Subscription;
   private routeReady=false;
   private applyingRoute=false;
+  private readonly oauthReturnUrlKey='to-get-there.oauth-return-url';
 
   constructor(
     private readonly supabase: SupabaseService,
@@ -141,7 +143,16 @@ export class AppComponent implements OnInit, OnDestroy {
   private async applyRoute(url:string) {
     const route=this.navigation.parse(url);
     if(route.screen==='auth'){
-      if(this.userId){await this.router.navigateByUrl(route.returnUrl|| (this.travelerCompleted?'/home':'/onboarding'),{replaceUrl:true});return}
+      if(this.userId){
+        const target=this.travelerCompleted?(route.returnUrl||this.consumeOAuthReturnUrl()||'/home'):'/onboarding';
+        await this.router.navigateByUrl(target,{replaceUrl:true});return
+      }
+      const oauthError=this.oauthErrorFromUrl(url);
+      if(oauthError){
+        sessionStorage.removeItem(this.oauthReturnUrlKey);
+        this.notify(`Connexion Google interrompue : ${oauthError}`);
+        if(url!=='/login'){await this.router.navigateByUrl('/login',{replaceUrl:true});return}
+      }
       this.authMode='login';this.screen='auth';return;
     }
     const ownerReader=route.screen==='reader'&&route.readerOrigin==='owner';
@@ -238,6 +249,21 @@ export class AppComponent implements OnInit, OnDestroy {
     this.goToReaderPage(targetIndex,false);
   }
   start() { this.go('auth'); }
+  async signInWithGoogle() {
+    if(this.googleAuthLoading)return;
+    if(!this.supabase.configured){this.notify('Ajoute d\u2019abord tes cl\u00e9s Supabase dans environment.ts');return}
+    const route=this.navigation.parse(this.router.url);
+    const returnUrl=this.safeReturnUrl(route.screen==='auth'?route.returnUrl:null)||'/home';
+    sessionStorage.setItem(this.oauthReturnUrlKey,returnUrl);
+    this.googleAuthLoading=true;
+    try{
+      await this.supabase.signInWithGoogle(`${window.location.origin}/login`);
+    }catch(error){
+      sessionStorage.removeItem(this.oauthReturnUrlKey);
+      this.googleAuthLoading=false;
+      this.notify(this.errorMessage(error));
+    }
+  }
   async submitAuth() {
     if (!this.supabase.configured) { this.notify('Ajoute d’abord tes clés Supabase dans environment.ts'); return; }
     if (this.authMode === 'forgot') {
@@ -274,7 +300,9 @@ export class AppComponent implements OnInit, OnDestroy {
         answers_json: { notes: this.questionnaire.notes }, completed_at: new Date().toISOString()
       });
       this.travelerCompleted=true;
-      this.notify('Ton cocon voyageur est prêt !'); this.go('home');
+      this.notify('Ton cocon voyageur est prêt !');
+      const target=this.consumeOAuthReturnUrl()||'/home';
+      await this.router.navigateByUrl(target,{replaceUrl:true});
     } catch (error) { this.notify(this.errorMessage(error)); }
   }
   async createTrip() {
@@ -518,7 +546,7 @@ export class AppComponent implements OnInit, OnDestroy {
     try { const currentUser = await this.requireUser(); await this.supabase.saveProfile(currentUser.id, { username: this.user.username, firstname: this.user.firstname, bio: this.user.bio }); this.user.avatar = (this.user.firstname || 'V').charAt(0).toUpperCase(); this.notify('Profil mis à jour'); }
     catch (error) { this.notify(this.errorMessage(error)); }
   }
-  async logout() { if(this.communityPollTimer){clearInterval(this.communityPollTimer);this.communityPollTimer=undefined}try { await this.supabase.signOut(); } catch {} this.userId='';this.travelerCompleted=false;this.selectedTrip = null; this.trips = []; this.inboxList=[];this.friendRequests=[];this.unreadMessageCount=0;this.pendingFriendCount=0;this.go('splash',true);this.notify('À bientôt, belle exploratrice !'); }
+  async logout() { sessionStorage.removeItem(this.oauthReturnUrlKey);if(this.communityPollTimer){clearInterval(this.communityPollTimer);this.communityPollTimer=undefined}try { await this.supabase.signOut(); } catch {} this.userId='';this.travelerCompleted=false;this.selectedTrip = null; this.trips = []; this.inboxList=[];this.friendRequests=[];this.unreadMessageCount=0;this.pendingFriendCount=0;this.go('splash',true);this.notify('À bientôt, belle exploratrice !'); }
   notify(message: string) { this.toast = message; setTimeout(() => this.toast = '', 2800); }
   private setActionError(scope:string,message:string,retry:()=>Promise<void>){this.actionError={scope,message};this.retryCallback=retry}
   private clearActionError(scope:string){if(this.actionError?.scope===scope){this.actionError=null;this.retryCallback=null}}
@@ -535,8 +563,24 @@ export class AppComponent implements OnInit, OnDestroy {
       if (traveler) this.questionnaire = { personality: traveler.personality ?? 'curieuse', anxiety: traveler.anxiety_level ?? 2, noise: traveler.noise_sensitivity ?? 2, crowd: traveler.crowd_sensitivity ?? 2, diet: (traveler.dietary_preferences ?? []).join(', '), allergies: (traveler.allergies ?? []).join(', '), mobility: traveler.mobility_preferences ?? '', notes: traveler.answers_json?.notes ?? '' };
       this.trips = trips.map(data => this.mapTrip(data));
       this.startCommunityPolling();
-      if(navigate){const current=this.navigation.parse(this.router.url);const target=current.screen==='auth'&&current.returnUrl?current.returnUrl:(this.travelerCompleted?'/home':'/onboarding');await this.router.navigateByUrl(target,{replaceUrl:true})}
+      if(navigate){const current=this.navigation.parse(this.router.url);const target=this.travelerCompleted?((current.screen==='auth'&&current.returnUrl)||this.consumeOAuthReturnUrl()||'/home'):'/onboarding';await this.router.navigateByUrl(target,{replaceUrl:true})}
     } catch (error) { this.notify(this.errorMessage(error)); }
+  }
+  private safeReturnUrl(value:string|null|undefined){
+    if(!value||!value.startsWith('/')||value.startsWith('//'))return'';
+    try{const parsed=new URL(value,window.location.origin);return parsed.origin===window.location.origin?`${parsed.pathname}${parsed.search}${parsed.hash}`:''}catch{return''}
+  }
+  private consumeOAuthReturnUrl(){
+    const target=this.safeReturnUrl(sessionStorage.getItem(this.oauthReturnUrlKey));
+    sessionStorage.removeItem(this.oauthReturnUrlKey);
+    return target;
+  }
+  private oauthErrorFromUrl(value:string){
+    try{
+      const parsed=new URL(value,window.location.origin);
+      const hash=new URLSearchParams(parsed.hash.replace(/^#/,''));
+      return parsed.searchParams.get('error_description')||hash.get('error_description')||parsed.searchParams.get('error')||hash.get('error')||'';
+    }catch{return''}
   }
   private mapTrip(data: any): Trip { return { id: data.id, title: data.title, country: data.country, startDate: data.start_date, endDate: data.end_date, currency: data.currency, budget: data.planned_budget == null ? null : Number(data.planned_budget), visibility: data.visibility, coverUrl:data.cover_url, days: (data.trip_days ?? []).sort((a: any, b: any) => a.day_number - b.day_number).map((day: any) => ({ id: day.id, date: day.day_date, label: `Jour ${day.day_number}`, note: day.notes ?? '' })) }; }
   private async requireUser() { const user = await this.supabase.currentUser(); if (!user) throw new Error('Ta session a expiré, reconnecte-toi.'); return user; }

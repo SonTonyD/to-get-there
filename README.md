@@ -36,6 +36,19 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Connexion avec Google
+
+L'application utilise Google OAuth via Supabase. Aucun identifiant ni secret Google ne doit être ajouté dans les fichiers Angular.
+
+1. Dans Google Cloud, configure l'écran de consentement OAuth puis crée un client OAuth de type **Application Web**.
+2. Ajoute les origines JavaScript `http://localhost:4200` et l'origine du site de production.
+3. Ajoute comme URI de redirection Google `https://zknedkwzwchqnbegmhkv.supabase.co/auth/v1/callback`.
+4. Dans Supabase, ouvre **Authentication > Providers > Google**, active le fournisseur et renseigne le Client ID et le Client Secret Google.
+5. Dans **Authentication > URL Configuration**, ajoute `http://localhost:4200/login` et `https://VOTRE-DOMAINE/login` aux Redirect URLs. Configure aussi la Site URL de production.
+6. Exécute la migration `supabase/migrations/20260819_google_oauth_profiles.sql` afin d'initialiser le pseudo, le prénom et la photo des nouveaux comptes Google.
+
+Le retour OAuth conserve la page privée que l'utilisateur voulait consulter. Un nouveau compte passe d'abord par le questionnaire, puis reprend cette navigation.
+
 ## Navigation et liens profonds
 
 Les écrans principaux disposent maintenant d’URL stables :

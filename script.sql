@@ -80,15 +80,37 @@ create trigger traveler_profiles_touch before update on public.traveler_profiles
 create trigger privacy_settings_touch before update on public.privacy_settings for each row execute function public.touch_updated_at();
 create trigger trips_touch before update on public.trips for each row execute function public.touch_updated_at();
 
--- Création du profil minimal à l'inscription. Les métadonnées sont envoyées via signUp().
+-- Création du profil minimal à l'inscription (e-mail ou fournisseur OAuth).
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = '' as $$
+declare
+  metadata jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
+  requested_username text;
+  generated_username text;
+  display_firstname text;
 begin
-  insert into public.profiles (id, username, firstname)
+  requested_username := nullif(btrim(metadata ->> 'username'), '');
+  generated_username := left(
+    coalesce(
+      nullif(regexp_replace(lower(split_part(coalesce(new.email, ''), '@', 1)), '[^a-z0-9._-]+', '', 'g'), ''),
+      'voyageur'
+    ),
+    30
+  ) || '_' || substr(new.id::text, 1, 8);
+  display_firstname := coalesce(
+    nullif(btrim(metadata ->> 'firstname'), ''),
+    nullif(btrim(metadata ->> 'given_name'), ''),
+    nullif(btrim(metadata ->> 'full_name'), ''),
+    nullif(btrim(metadata ->> 'name'), ''),
+    'Voyageur'
+  );
+
+  insert into public.profiles (id, username, firstname, profile_picture)
   values (
     new.id,
-    coalesce(nullif(new.raw_user_meta_data ->> 'username',''), 'voyageur_' || substr(new.id::text, 1, 8)),
-    coalesce(nullif(new.raw_user_meta_data ->> 'firstname',''), 'Voyageur')
+    coalesce(requested_username, generated_username),
+    left(display_firstname, 80),
+    coalesce(nullif(metadata ->> 'avatar_url', ''), nullif(metadata ->> 'picture', ''))
   );
   insert into public.privacy_settings(user_id) values (new.id);
   return new;

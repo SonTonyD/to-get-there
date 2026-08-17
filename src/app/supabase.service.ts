@@ -40,6 +40,18 @@ export class SupabaseService {
     return data;
   }
 
+  async signInWithGoogle(redirectTo: string) {
+    const { data, error } = await this.db.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        queryParams: { prompt: 'select_account' }
+      }
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async resetPassword(email: string) {
     const { error } = await this.db.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`
