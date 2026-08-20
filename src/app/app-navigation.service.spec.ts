@@ -25,6 +25,18 @@ describe('AppNavigationService',()=>{
     expect(navigation.parse(url)).toEqual({screen:'reader',publicationSlug:'japon-2026',readerPage:4,readerOrigin:'public'});
   });
 
+  it('supports the share studio for a trip day',()=>{
+    const url=navigation.routeFor('share-studio',{tripId:'trip-1',dayId:'day-2',readerOrigin:'owner'});
+    expect(url).toBe('/trips/trip-1/share?day=day-2');
+    expect(navigation.parse(url)).toEqual({screen:'share-studio',tripId:'trip-1',dayId:'day-2',readerOrigin:'owner'});
+  });
+
+  it('supports sharing from a public reader page',()=>{
+    const url=navigation.routeFor('share-studio',{publicationSlug:'japon-2026',readerPage:4,readerOrigin:'public'});
+    expect(url).toBe('/travel/japon-2026/share?page=4');
+    expect(navigation.parse(url)).toEqual({screen:'share-studio',publicationSlug:'japon-2026',readerPage:4,readerOrigin:'public'});
+  });
+
   it('keeps the requested private URL through login',()=>{
     const login=navigation.loginRoute('/messages/conversation-1');
     expect(navigation.parse(login).returnUrl).toBe('/messages/conversation-1');

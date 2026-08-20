@@ -17,6 +17,7 @@ export class TravelReaderComponent implements AfterViewInit, OnChanges, OnDestro
   @Input() designStyles: Record<string, string | null> = {};
   @Output() indexChange = new EventEmitter<number>();
   @Output() closeRequested = new EventEmitter<void>();
+  @Output() shareStudioRequested = new EventEmitter<number>();
   @Output() notice = new EventEmitter<string>();
 
   tocOpen = false;

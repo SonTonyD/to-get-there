@@ -5,6 +5,7 @@ export type AppScreen =
   | 'dashboard' | 'journal' | 'explore' | 'destination' | 'place'
   | 'public-trip' | 'public-profile' | 'inspirations' | 'inbox'
   | 'conversation' | 'community-settings' | 'reader' | 'video-studio'
+  | 'share-studio'
   | 'profile';
 
 export interface NavigationContext {
@@ -59,6 +60,14 @@ export class AppNavigationService {
         const query = context.dayId ? `?day=${dayId}` : '';
         return tripId ? `/trips/${tripId}/video${query}` : '/trips';
       }
+      case 'share-studio': {
+        if (context.readerOrigin === 'public' && context.publicationSlug) {
+          const query = context.readerPage ? `?page=${Math.max(1, context.readerPage)}` : '';
+          return `/travel/${this.segment(context.publicationSlug)}/share${query}`;
+        }
+        const query = context.dayId ? `?day=${dayId}` : '';
+        return tripId ? `/trips/${tripId}/share${query}` : '/trips';
+      }
       case 'reader': {
         const page = Math.max(1, context.readerPage ?? 1);
         if (context.readerOrigin === 'public' && context.publicationSlug) return `/travel/${this.segment(context.publicationSlug)}/read/${page}`;
@@ -85,6 +94,7 @@ export class AppNavigationService {
       if (!parts[1]) return { screen: 'trips' };
       if (parts[2] === 'days' && parts[3]) return { screen: 'journal', tripId: parts[1], dayId: parts[3] };
       if (parts[2] === 'video') return { screen: 'video-studio', tripId: parts[1], dayId: query.get('day') ?? undefined };
+      if (parts[2] === 'share') return { screen: 'share-studio', tripId: parts[1], dayId: query.get('day') ?? undefined, readerOrigin: 'owner' };
       if (parts[2] === 'read') return { screen: 'reader', tripId: parts[1], readerPage: this.page(parts[3]), readerOrigin: 'owner' };
       return { screen: 'dashboard', tripId: parts[1] };
     }
@@ -94,6 +104,7 @@ export class AppNavigationService {
       return { screen: 'explore' };
     }
     if (parts[0] === 'travel' && parts[1]) {
+      if (parts[2] === 'share') return { screen: 'share-studio', publicationSlug: parts[1], readerPage: this.page(query.get('page') ?? undefined), readerOrigin: 'public' };
       if (parts[2] === 'read') return { screen: 'reader', publicationSlug: parts[1], readerPage: this.page(parts[3]), readerOrigin: 'public' };
       return { screen: 'public-trip', publicationSlug: parts[1] };
     }

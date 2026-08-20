@@ -1,0 +1,79 @@
+<section class="share-studio-page">
+  <header class="share-header">
+    <button class="share-back" (click)="closeRequested.emit()">← Quitter</button>
+    <div><span>✦ Studio de partage</span><h1>Partager ce souvenir</h1><p>Une première version est déjà prête pour toi.</p></div>
+    <span class="share-output-pill">{{ outputLabel }} · {{ dimensionsLabel }}</span>
+  </header>
+
+  <nav class="share-steps" aria-label="Étapes du studio">
+    @for (item of [{n:1,label:'Contenu'},{n:2,label:'Destination'},{n:3,label:'Personnaliser'},{n:4,label:'Partager'}]; track item.n) {
+      <button [class.active]="step === item.n" [class.done]="step > item.n" (click)="setStep(item.n)"><b>{{ step > item.n ? '✓' : item.n }}</b><span>{{ item.label }}</span></button>
+    }
+  </nav>
+
+  <main class="share-workspace">
+    <section class="share-panel">
+      @if (step === 1) {
+        <div class="panel-heading"><span>Étape 1</span><h2>Que veux-tu raconter ?</h2><p>Le voyage complet est préparé automatiquement. Tu peux aussi te concentrer sur une journée ou quelques photos.</p></div>
+        <div class="scope-grid">
+          <button [class.active]="scope === 'trip'" (click)="setScope('trip')"><i>✈</i><b>Voyage complet</b><small>{{ source.days.length }} journées · {{ photos.length }} photos</small></button>
+          <button [class.active]="scope === 'day'" (click)="setScope('day')"><i>▤</i><b>Une journée</b><small>Un souvenir précis et personnel</small></button>
+          <button [class.active]="scope === 'selection'" (click)="setScope('selection')"><i>▦</i><b>Sélection libre</b><small>Choisis jusqu’à 10 photos</small></button>
+        </div>
+        @if (scope === 'day') {
+          <label class="day-choice">Choisir la journée<select [ngModel]="selectedDayId" (ngModelChange)="chooseDay($event)">@for(day of source.days;track (day.id || day.date) + '-' + $index){<option [value]="day.id">Jour {{day.number}} · {{day.title}}</option>}</select></label>
+        }
+        @if (scope === 'selection') {
+          <div class="share-photo-picker">@for(photo of photos;track photo.id){<button [class.active]="selectedMediaIds.includes(photo.id)" (click)="toggleMedia(photo.id)"><img [src]="photo.url" alt=""><span>{{selectedMediaIds.includes(photo.id)?'✓':'+'}}</span></button>}@empty{<p>Aucune photo n’est encore disponible.</p>}</div>
+        }
+      }
+
+      @if (step === 2) {
+        <div class="panel-heading"><span>Étape 2</span><h2>Où vas-tu le partager ?</h2><p>Les dimensions, le nombre de pages et le rythme s’adaptent automatiquement.</p></div>
+        <div class="destination-grid">
+          <button [class.active]="destination === 'reel'" (click)="chooseDestination('reel')"><i>◎</i><b>Reel Instagram</b><small>Vidéo 9:16 · MP4 · 30 FPS</small><em>15, 30 ou 45 s</em></button>
+          <button [class.active]="destination === 'tiktok'" (click)="chooseDestination('tiktok')"><i>♪</i><b>TikTok</b><small>Vidéo 9:16 · MP4 · 30 FPS</small><em>15, 30 ou 45 s</em></button>
+          <button [class.active]="destination === 'story'" (click)="chooseDestination('story')"><i>▯</i><b>Story</b><small>3 à 6 images verticales</small><em>1080 × 1920</em></button>
+          <button [class.active]="destination === 'carousel'" (click)="chooseDestination('carousel')"><i>▤</i><b>Carrousel</b><small>5 à 10 pages portrait</small><em>1080 × 1350</em></button>
+          <button [class.active]="destination === 'card'" (click)="chooseDestination('card')"><i>◇</i><b>Carte souvenir</b><small>Une journée en une image</small><em>1080 × 1350</em></button>
+        </div>
+      }
+
+      @if (step === 3) {
+        <div class="panel-heading"><span>Étape 3</span><h2>Ajoute ta touche</h2><p>La proposition est utilisable telle quelle. Modifie seulement ce qui compte pour toi.</p></div>
+        <div class="quick-editor">
+          <label>Titre<input [(ngModel)]="title" maxlength="90" (ngModelChange)="updateDraft()"></label>
+          <label>Sous-titre<textarea [(ngModel)]="subtitle" maxlength="240" (ngModelChange)="updateDraft()"></textarea></label>
+          @if (isVideo) {<div><span>Durée</span><div class="choice-line">@for(value of [15,30,45];track value){<button [class.active]="duration === value" (click)="duration = $any(value); updateDraft()">{{value}} s</button>}</div></div>}
+          <div><span>Palette</span><div class="palette-line">@for(value of ['candy','sunset','ocean','forest','nocturne'];track value){<button [class.active]="palette === value" [attr.data-palette]="value" (click)="palette = $any(value); updateDraft()"><i></i>{{value}}</button>}</div></div>
+          @if (isVideo) {<label class="text-switch"><input type="checkbox" [(ngModel)]="showText" (ngModelChange)="updateDraft()"> Afficher les textes dans la vidéo</label>}
+          <label>Légende à publier<textarea [(ngModel)]="caption" maxlength="1000"></textarea><button class="copy-caption" (click)="copyCaption()">Copier la légende</button></label>
+          <div><span>Photos utilisées · {{selectedMediaIds.length}}/10</span><div class="share-photo-picker compact">@for(photo of photos;track photo.id){<button [class.active]="selectedMediaIds.includes(photo.id)" (click)="toggleMedia(photo.id)"><img [src]="photo.url" alt=""><span>{{selectedMediaIds.includes(photo.id)?'✓':'+'}}</span></button>}</div></div>
+        </div>
+      }
+
+      @if (step === 4) {
+        <div class="panel-heading"><span>Étape 4</span><h2>Ton souvenir est prêt</h2><p>{{isVideo ? 'Le MP4 sera créé directement sur ton appareil.' : visuals.length + ' visuel' + (visuals.length > 1 ? 's seront générés.' : ' sera généré.')}}</p></div>
+        <div class="export-summary"><div><span>Format</span><b>{{outputLabel}}</b></div><div><span>Dimensions</span><b>{{dimensionsLabel}}</b></div><div><span>{{isVideo?'Durée':'Pages'}}</span><b>{{isVideo ? duration + ' secondes' : visuals.length}}</b></div><div><span>Qualité</span><b>{{isVideo?'MP4 H.264 · 30 FPS':'PNG haute définition'}}</b></div></div>
+        @if (!isVideo || videoRenderer.supported) {
+          <div class="share-actions"><button class="download-share" [disabled]="busy" (click)="download()">{{busy?'Création en cours…':'↓ Télécharger'}}</button><button class="native-share" [disabled]="busy" (click)="share()">{{busy?'Préparation…':'↗ Partager'}}</button></div>
+        } @else {<p class="share-error">L’export vidéo nécessite une version récente de Chrome ou Edge. Les exports Story, carrousel et carte restent disponibles.</p>}
+        @if (progress) {<div class="share-progress"><div><span>{{progress.label}}</span><b>{{progress.progress}}%</b></div><i><span [style.width.%]="progress.progress"></span></i></div>}
+        @if (videoUrl) {<video class="share-video-result" [src]="videoUrl" controls playsinline></video>}
+        @if (error) {<p class="share-error">{{error}}</p>}
+      }
+    </section>
+
+    <aside class="share-preview" [class.wide-preview]="destination === 'carousel' || destination === 'card'" [attr.data-palette]="palette">
+      <div class="phone-frame">
+        <article class="visual-preview" [class.has-photo]="currentVisual.photo" [style.background-image]="currentVisual.photo ? 'linear-gradient(0deg,rgba(28,18,34,.9),rgba(28,18,34,.03)),url(' + currentVisual.photo + ')' : ''">
+          <i class="preview-tape"></i><div><small>{{currentVisual.kicker}}</small><h2>{{currentVisual.title}}</h2><p>{{currentVisual.subtitle}}</p>@if(currentVisual.details?.length){<ul>@for(detail of currentVisual.details ?? [];track detail + '-' + $index){<li>{{detail}}</li>}</ul>}</div><footer>{{source.author ? 'Carnet de ' + source.author : 'Carnet de voyage'}}<b>✦</b></footer>
+        </article>
+      </div>
+      @if (visuals.length > 1) {<div class="preview-pages">@for(visual of visuals;track visual.kind + '-' + $index){<button [class.active]="$index === previewIndex" (click)="preview($index)"><span>{{$index + 1}}</span>{{visual.kind}}</button>}</div>}
+      <small class="preview-note">Aperçu automatique · le fichier final sera exporté en pleine résolution.</small>
+    </aside>
+  </main>
+
+  <footer class="share-footer"><button [disabled]="step === 1" (click)="previous()">← Précédent</button>@if(step < 4){<button class="next-share-step" (click)="next()">Continuer →</button>}@else{<button (click)="setStep(3)">Modifier</button>}</footer>
+</section>

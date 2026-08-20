@@ -18,7 +18,7 @@ type Palette = { accent: string; paper: string; ink: string; soft: string };
 
 @Injectable({ providedIn: 'root' })
 export class BrowserVideoRendererService {
-  readonly fps = 25;
+  readonly fps = 30;
   private readonly palettes: Record<string, Palette> = {
     candy: { accent: '#ff62b0', paper: '#fff4df', ink: '#4f365c', soft: '#b8f2e6' },
     sunset: { accent: '#f49b52', paper: '#fff0df', ink: '#63372c', soft: '#ffd166' },
@@ -37,13 +37,13 @@ export class BrowserVideoRendererService {
 
     const { Output, Mp4OutputFormat, BufferTarget, CanvasSource, AudioBufferSource, Quality, getFirstEncodableVideoCodec, getFirstEncodableAudioCodec } = await import('mediabunny');
     const vertical = project.format !== 'horizontal';
-    const width = vertical ? 720 : 1280;
-    const height = vertical ? 1280 : 720;
+    const width = vertical ? 1080 : 1920;
+    const height = vertical ? 1920 : 1080;
     const format = new Mp4OutputFormat();
-    const quality = new Quality({ bitrate: vertical ? 3_800_000 : 4_200_000 });
-    const preferredCodecs = ['avc', 'hevc', 'av1'].filter(codec => format.getSupportedVideoCodecs().includes(codec as any)) as any[];
+    const quality = new Quality({ bitrate: vertical ? 6_000_000 : 7_000_000 });
+    const preferredCodecs = ['avc'].filter(codec => format.getSupportedVideoCodecs().includes(codec as any)) as any[];
     const videoCodec = await getFirstEncodableVideoCodec(preferredCodecs, { width, height, quality });
-    if (!videoCodec) throw new Error('Aucun encodeur MP4 compatible n’est disponible sur cet appareil. Essaie Chrome ou Edge sur ordinateur.');
+    if (!videoCodec) throw new Error('Aucun encodeur MP4 H.264 compatible n’est disponible sur cet appareil. Essaie Chrome ou Edge sur ordinateur.');
 
     const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
     const context = canvas.getContext('2d', { alpha: false });

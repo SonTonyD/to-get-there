@@ -83,7 +83,18 @@ supabase db push
 supabase functions deploy generate-video-storyboard
 ```
 
-La génération du storyboard utilise `OPENAI_VIDEO_MODEL`, puis `OPENAI_MODEL`, avec `gpt-5.6-luna` comme valeur par défaut. Le MP4 est ensuite généré directement sur l’appareil avec WebCodecs et Mediabunny en 720p/25 fps, puis téléchargé et sauvegardé dans le bucket privé `video-renders`. Aucun serveur Render, secret de renderer ou service vidéo tiers n’est nécessaire.
+La génération du storyboard utilise `OPENAI_VIDEO_MODEL`, puis `OPENAI_MODEL`, avec `gpt-5.6-luna` comme valeur par défaut. Le MP4 est ensuite généré directement sur l’appareil avec WebCodecs et Mediabunny en 1080p/30 fps, puis téléchargé et sauvegardé dans le bucket privé `video-renders`. Aucun serveur Render, secret de renderer ou service vidéo tiers n’est nécessaire.
+
+## Studio de partage social
+
+Le bouton **Partager ce souvenir**, disponible dans un voyage, une journée et le lecteur, ouvre un parcours guidé avec une proposition préremplie. Les formats disponibles sont :
+
+- Reel Instagram et TikTok : MP4 H.264 vertical 1080 × 1920 à 30 FPS, en 15, 30 ou 45 secondes ;
+- Story : 3 à 6 PNG verticaux en 1080 × 1920 ;
+- carrousel Instagram : 5 à 10 PNG en 1080 × 1350 ;
+- carte souvenir : un PNG en 1080 × 1350 centré sur une journée.
+
+Les exports sont réalisés dans le navigateur. Sur un appareil compatible, la feuille de partage native reçoit directement les fichiers ; sinon ils sont téléchargés. Les routes `/trips/:tripId/share` et `/travel/:slug/share` permettent de reprendre ou partager le studio depuis un carnet privé ou public.
 
 Après déploiement de `20260817_browser_video_export.sql`, l’ancienne Edge Function distante peut être supprimée :
 

@@ -12,6 +12,8 @@ import { TravelReaderComponent } from './features/reader/travel-reader.component
 import { buildSignatureReaderPages } from './features/reader/reader-pages';
 import { MessagingDomainComponent } from './features/messaging/messaging-domain.component';
 import { buildTripDayProgress, DayProgress } from './features/trips/trip-progress';
+import { ShareStudioComponent } from './share-studio.component';
+import type { ShareStudioSource } from './share-studio.component';
 
 type Screen = AppScreen;
 type AuthMode = 'login' | 'signup' | 'forgot';
@@ -29,7 +31,7 @@ interface ScrapbookDesign { style:'wanderlust'|'retro'|'botanical'|'nocturne';pa
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, VideoStudioComponent, TravelReaderComponent, MessagingDomainComponent],
+  imports: [CommonModule, FormsModule, VideoStudioComponent, TravelReaderComponent, MessagingDomainComponent, ShareStudioComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
@@ -76,6 +78,7 @@ export class AppComponent implements OnInit, OnDestroy {
   messagePermission:'everyone'|'following'|'friends'|'nobody'='everyone';
   get messagingMode():MessagingMode{return this.screen==='conversation'?'conversation':this.screen==='community-settings'?'settings':'inbox'}
   videoProject:any=null;videoMedia:any[]=[];videoExport:any=null;videoBusy='';videoError='';videoDay:TripDay|null=null;videoOrigin:Screen='dashboard';private videoObjectUrl='';
+  shareSource:ShareStudioSource|null=null;shareOrigin:Screen='dashboard';shareDayId='';shareReaderPage=1;shareLoading=false;sharePublic=false;
   tripTab:TripTab='journal'; journalStep:JournalStep=1;
   private map?: L.Map;
   private recorder: MediaRecorder | null = null;
@@ -112,7 +115,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   go(screen: Screen,replaceUrl=false) {
     if(this.screen==='journal'&&screen!=='journal'&&(this.autosaveState==='pending'||this.autosaveState==='saving'))void this.saveJournal(true);
-    const context=this.navigationContext();
+    const context=this.navigationContext(screen);
     const destination=this.navigation.routeFor(screen,context);
     const requiresAccount=this.navigation.privateScreens.has(screen)||(screen==='reader'&&context.readerOrigin!=='public');
     if(!this.userId&&requiresAccount){
@@ -125,18 +128,18 @@ export class AppComponent implements OnInit, OnDestroy {
     this.menuOpen=false;window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  private navigationContext():NavigationContext {
+  private navigationContext(targetScreen:Screen=this.screen):NavigationContext {
     return {
       tripId:this.selectedTrip?.id,
-      dayId:this.selectedDay?.id,
+      dayId:targetScreen==='share-studio'?this.shareDayId:this.selectedDay?.id,
       publicationSlug:this.selectedPublicSlug,
       username:this.publicProfileUsername,
       conversationId:this.activeConversationId,
       videoProjectId:this.screen==='video-studio'?this.videoProject?.id:undefined,
       destinationId:this.activeDestinationId,
       placeId:this.activePlaceId,
-      readerPage:this.readerIndex+1,
-      readerOrigin:this.readerOrigin==='public-trip'?'public':'owner'
+      readerPage:targetScreen==='share-studio'?this.shareReaderPage:this.readerIndex+1,
+      readerOrigin:targetScreen==='share-studio'&&this.sharePublic?'public':this.readerOrigin==='public-trip'?'public':'owner'
     };
   }
 
@@ -156,7 +159,8 @@ export class AppComponent implements OnInit, OnDestroy {
       this.authMode='login';this.screen='auth';return;
     }
     const ownerReader=route.screen==='reader'&&route.readerOrigin==='owner';
-    if(!this.userId&&(this.navigation.privateScreens.has(route.screen)||ownerReader)){
+    const ownerShare=route.screen==='share-studio'&&route.readerOrigin!=='public';
+    if(!this.userId&&(this.navigation.privateScreens.has(route.screen)||ownerReader||ownerShare)){
       this.authMode='login';this.screen='auth';
       await this.router.navigateByUrl(this.navigation.loginRoute(url),{replaceUrl:true});return;
     }
@@ -176,6 +180,7 @@ export class AppComponent implements OnInit, OnDestroy {
         case 'inbox': if(this.inboxLoading){this.screen='inbox'}else await this.openInbox();break;
         case 'conversation': if(this.activeConversationId===route.conversationId&&this.conversationLoading)this.screen='conversation';else await this.openConversation(route.conversationId??'');break;
         case 'video-studio': await this.restoreVideoRoute(route);break;
+        case 'share-studio': await this.restoreShareRoute(route);break;
         case 'reader': await this.restoreReaderRoute(route);break;
         default:this.screen=route.screen;
       }
@@ -234,6 +239,22 @@ export class AppComponent implements OnInit, OnDestroy {
     this.selectedTrip=trip;const day=trip.days.find(item=>item.id===route.dayId)??null;
     if(this.screen==='video-studio'&&this.videoBusy)return;
     await this.openVideoStudio(day);
+  }
+
+  private async restoreShareRoute(route:AppRouteState){
+    this.screen='share-studio';this.shareLoading=true;this.sharePublic=route.readerOrigin==='public';this.shareReaderPage=route.readerPage??1;this.shareDayId=route.dayId??'';
+    try{
+      if(this.sharePublic){
+        if(!this.selectedPublicTrip||this.selectedPublicSlug!==route.publicationSlug)await this.restorePublicTripRoute({...route,screen:'public-trip'});
+        this.shareSource=this.publicShareSource(this.shareReaderPage);
+        if(this.shareOrigin!=='reader')this.shareOrigin='public-trip';
+        this.screen='share-studio';
+      }else{
+        const trip=this.tripFromRoute(route.tripId);if(!trip){await this.router.navigateByUrl('/trips',{replaceUrl:true});return}
+        this.selectedTrip=trip;if(this.shareDayId)this.selectedDay=trip.days.find(day=>day.id===this.shareDayId)??null;this.shareSource=await this.ownerShareSource(trip,this.shareDayId);
+        if(this.shareOrigin!=='reader'&&this.shareOrigin!=='journal')this.shareOrigin=this.shareDayId?'journal':'dashboard';
+      }
+    }finally{this.shareLoading=false}
   }
 
   private async restoreReaderRoute(route:AppRouteState){
@@ -504,6 +525,50 @@ export class AppComponent implements OnInit, OnDestroy {
     }catch(error){this.videoError=this.errorMessage(error)}finally{this.videoBusy=''}
   }
   closeVideoStudio(){if(this.videoOrigin==='journal'&&this.videoDay)this.go('journal');else{this.go('dashboard');void this.loadTripInsights()}}
+  async openShareStudio(day:TripDay|null=null){
+    if(!this.selectedTrip)return;
+    if(this.screen==='journal')await this.saveJournal(true);
+    this.shareOrigin=this.screen;this.sharePublic=false;this.shareDayId=day?.id??'';this.shareReaderPage=this.readerIndex+1;this.shareSource=null;
+    this.go('share-studio');
+  }
+  openShareStudioFromReader(pageIndex:number){
+    const page=this.readerPages[pageIndex];this.shareOrigin='reader';this.shareReaderPage=pageIndex+1;
+    if(this.readerOrigin==='public-trip'){
+      this.sharePublic=true;this.shareDayId='';this.shareSource=null;this.go('share-studio');return;
+    }
+    const day=page?.kind==='day'?this.selectedTrip?.days[Number(page.number)-1]??null:null;
+    this.sharePublic=false;this.shareDayId=day?.id??'';this.shareSource=null;this.go('share-studio');
+  }
+  openPublicShareStudio(){
+    if(!this.selectedPublicTrip)return;
+    this.shareOrigin='public-trip';this.sharePublic=true;this.shareDayId='';this.shareReaderPage=1;this.shareSource=null;this.go('share-studio');
+  }
+  closeShareStudio(){
+    this.shareSource=null;
+    if(this.shareOrigin==='reader'){this.go('reader');return}
+    if(this.shareOrigin==='journal'&&this.selectedDay){this.go('journal');return}
+    if(this.shareOrigin==='public-trip'){this.go('public-trip');return}
+    this.go('dashboard');
+  }
+  private async ownerShareSource(trip:Trip,dayId=''):Promise<ShareStudioSource>{
+    const[days,media,stats,places,command]=await Promise.all([this.supabase.tripReader(trip.id),this.supabase.tripMedia(trip.id),this.supabase.tripStatistics(trip.id),this.supabase.placeVisits(trip.id),this.supabase.tripCommandCenter(trip.id)]);
+    this.tripStats=stats;this.placeVisits=places;this.tripCommandCenter=command;
+    return{
+      trip:{id:trip.id,title:trip.title,country:trip.country,startDate:trip.startDate,endDate:trip.endDate},
+      days:days.map((day:any)=>{const journal=day.day_journals?.[0]??day.day_journals??{};return{id:day.id,number:day.day_number,date:day.day_date,title:journal.title||`Jour ${day.day_number}`,summary:journal.summary||day.notes||'',events:(journal.journal_events??[]).sort((a:any,b:any)=>a.event_order-b.event_order).map((event:any)=>({title:event.title,description:event.description,place:event.place_text,time:event.event_time}))}}),
+      media:media.filter((item:any)=>item.url),stats,places,author:this.user.firstname||this.user.username,
+      publicUrl:command?.publication?.slug?`${window.location.origin}/travel/${encodeURIComponent(command.publication.slug)}`:undefined,
+      initialDayId:dayId||undefined
+    };
+  }
+  private publicShareSource(pageNumber=1):ShareStudioSource|null{
+    const snapshot=this.selectedPublicTrip;if(!snapshot)return null;
+    const days=(snapshot.days??[]).map((day:any,index:number)=>({id:`public-day-${index+1}`,number:index+1,date:day.date,title:day.title||`Jour ${index+1}`,summary:day.summary||'',events:day.events??[]}));
+    const fallback=(snapshot.photos??[]).filter(Boolean);const media:any[]=[];
+    days.forEach((day:any,index:number)=>{const values=snapshot.photoDetails?.[day.date]??snapshot.photoDays?.[day.date]??fallback.filter((_:any,photoIndex:number)=>photoIndex%Math.max(days.length,1)===index);(values??[]).forEach((photo:any,photoIndex:number)=>media.push({id:`public-${index}-${photoIndex}`,trip_day_id:day.id,url:typeof photo==='string'?photo:photo.url,caption:typeof photo==='string'?'':photo.caption||'',media_type:'photo'}))});
+    const readerDay=this.readerPages[Math.max(0,pageNumber-1)];const initialDayId=readerDay?.kind==='day'?days[Number(readerDay.number)-1]?.id:undefined;
+    return{trip:{id:snapshot.trip?.id,title:snapshot.trip?.title,country:snapshot.trip?.country,startDate:snapshot.trip?.startDate,endDate:snapshot.trip?.endDate},days,media:media.filter(item=>item.url),stats:snapshot.stats,places:snapshot.places??[],author:snapshot.author?.firstname||snapshot.author?.username,publicUrl:`${window.location.origin}/travel/${encodeURIComponent(this.selectedPublicSlug)}`,initialDayId};
+  }
   async generateVideoStoryboard(config:VideoStudioConfig){
     if(!this.selectedTrip||this.videoBusy)return;this.videoBusy='generating';this.videoError='';
     try{const result=await this.supabase.generateVideoStoryboard({tripId:this.selectedTrip.id,tripDayId:this.videoDay?.id??null,format:config.format,targetDuration:config.targetDuration,style:{palette:config.palette,music:config.music,showText:config.showText,style:'scrapbook'}});this.videoProject=result.project;if(this.videoProject?.id)await this.router.navigateByUrl(`/video/${encodeURIComponent(this.videoProject.id)}`,{replaceUrl:true});this.notify('Storyboard prêt · personnalise maintenant ton film ✦')}
