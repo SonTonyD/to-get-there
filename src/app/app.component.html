@@ -13,7 +13,9 @@
   ) {
     <header class="topbar">
       <button class="brand" (click)="go('home')">
-        <span class="brand-mark">✦</span><span>To Get There</span>
+        <span class="brand-logo-frame brand-logo-compact">
+          <img src="/images/logos/logo_integrale.png" alt="To Get There" />
+        </span>
       </button>
       <nav [class.open]="menuOpen">
         <button [class.active]="screen === 'home'" (click)="go('home')">
@@ -156,6 +158,9 @@
     @if (screen === "splash") {
       <section class="splash page">
         <div class="splash-copy">
+          <div class="splash-logo-frame">
+            <img src="/images/logos/logo_integrale.png" alt="To Get There" />
+          </div>
           <span class="eyebrow">Ton carnet de voyage sensible</span>
           <h1>Voyage à ton rythme,<br /><em>rêve sans limites.</em></h1>
           <p>
@@ -187,7 +192,9 @@
       <section class="center-page page">
         <button class="back" (click)="go('splash')">← Retour</button>
         <div class="auth-card paper-card">
-          <div class="mini-logo">✦</div>
+          <div class="auth-logo-frame">
+            <img src="/images/logos/logo_icone.png" alt="" aria-hidden="true" />
+          </div>
           <h2>
             {{
               authMode === "signup"
@@ -2940,7 +2947,9 @@
     screen !== "share-studio"
   ) {
     <footer>
-      <span class="brand">✦ To Get There</span>
+      <div class="footer-logo-frame">
+        <img src="/images/logos/logo_monochrome_sombre.png" alt="To Get There" />
+      </div>
       <p>Voyage doucement, rêve grand.</p>
       <small>© 2026 · Fait avec ♡ à Lyon</small>
     </footer>
